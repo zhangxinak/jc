@@ -505,7 +505,7 @@
                 console.log('正在通过后端获取用户协议...');
                 try {
                     const result = await tauriInvoke('fetch_remote_content', { 
-                        url: 'https://zcpt.xysstgs.com/base/sys/setting/findConfByKey?key=hardware_information_tool_user_agreement'
+                        url: 'https://zjt.custom.dev.gyuncai.com/base/sys/setting/findConfByKey?key=hardware_information_tool_user_agreement'
                     });
                     console.log('后端获取用户协议成功:', result);
                     const content = extractContent(result);
@@ -528,7 +528,7 @@
                 console.log('正在通过后端获取隐私策略...');
                 try {
                     const result = await tauriInvoke('fetch_remote_content', { 
-                        url: 'https://zcpt.xysstgs.com/base/sys/setting/findConfByKey?key=hardware_information_tool_privacy_policy'
+                        url: 'https://zjt.custom.dev.gyuncai.com/base/sys/setting/findConfByKey?key=hardware_information_tool_privacy_policy'
                     });
                     console.log('后端获取隐私策略成功:', result);
                     const content = extractContent(result);
