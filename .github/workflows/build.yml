@@ -1,0 +1,280 @@
+name: 构建机器码获取工具
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset_name: machine-code-tool-kylin
+          - os: macos-latest
+            target: universal-apple-darwin
+            asset_name: machine-code-tool-macos
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset_name: machine-code-tool-windows
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+            asset_name: machine-code-tool-windows-32
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 确定项目目录
+        id: project-dir
+        run: |
+          if [ -d "machine-code-tool/src-tauri" ]; then
+            echo "dir=machine-code-tool" >> $GITHUB_OUTPUT
+          else
+            echo "dir=." >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: 构建 Ubuntu 20.04 镜像（仅 Linux，麒麟版 AppImage）
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ steps.project-dir.outputs.dir }}
+          file: ${{ steps.project-dir.outputs.dir }}/.github/docker/Dockerfile.kylin-apt
+          push: false
+          load: true
+          tags: kylin-apt-builder:latest
+
+      - name: Linux 在容器内构建 AppImage（glibc 2.31，麒麟 V10）
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          PROJ="${{ steps.project-dir.outputs.dir }}"
+          docker run --rm \
+            -v "$(pwd)/$PROJ:/workspace" \
+            -w /workspace \
+            kylin-apt-builder:latest bash -c '
+              set -e
+              export LANG=en_US.UTF-8
+              cd /workspace/src-tauri
+              mkdir -p icons
+              ICONS_ABS="$(pwd)/icons"
+              SRC_ICON=""
+              [ -f "$ICONS_ABS/icon.png" ] && SRC_ICON="$ICONS_ABS/icon.png"
+              [ -z "$SRC_ICON" ] && [ -f "$ICONS_ABS/512x512.png" ] && SRC_ICON="$ICONS_ABS/512x512.png"
+              for s in 32 128 256 512; do
+                if [ -n "$SRC_ICON" ]; then
+                  convert "$SRC_ICON" -resize ${s}x${s} -strip "PNG32:$ICONS_ABS/${s}x${s}.png"
+                elif [ -f "$ICONS_ABS/${s}x${s}.png" ]; then
+                  convert "$ICONS_ABS/${s}x${s}.png" -strip "PNG32:$ICONS_ABS/${s}x${s}.png"
+                else
+                  convert -size ${s}x${s} xc:none -fill "#4080ff" -draw "rectangle 0,0 $s,$s" -strip "PNG32:$ICONS_ABS/${s}x${s}.png"
+                fi
+              done
+              mkdir -p ../dist
+              [ ! -f ../dist/index.html ] && cp /workspace/.github/docker/kylin-fallback-index.html ../dist/index.html
+              cp tauri.conf.json tauri.conf.json.bak
+              sed -i "s/\"productName\":\"机器码获取工具\"/\"productName\":\"machine-code-tool\"/" tauri.conf.json
+              cargo tauri build --verbose
+              mv tauri.conf.json.bak tauri.conf.json 2>/dev/null || true
+              APPIMG=$(find target/release/bundle/appimage -maxdepth 1 -name "*.AppImage" -type f 2>/dev/null | head -1)
+              [ -z "$APPIMG" ] && echo "❌ 未找到 AppImage" && exit 1
+              cp "$APPIMG" machine-code-tool-kylin-apt.AppImage
+              chmod +x machine-code-tool-kylin-apt.AppImage
+              echo "🐧 机器码获取工具 - 银河麒麟 / Linux（AppImage）" > 使用说明-麒麟-apt.txt
+              echo "=======================================" >> 使用说明-麒麟-apt.txt
+              echo "" >> 使用说明-麒麟-apt.txt
+              echo "🎉 适用于麒麟 V10、Ubuntu 20.04 等，单文件免安装。" >> 使用说明-麒麟-apt.txt
+              echo "" >> 使用说明-麒麟-apt.txt
+              echo "💻 使用步骤：" >> 使用说明-麒麟-apt.txt
+              echo "" >> 使用说明-麒麟-apt.txt
+              echo "1、 先尝试直接双击「machine-code-tool-kylin.AppImage」运行。" >> 使用说明-麒麟-apt.txt
+              echo "" >> 使用说明-麒麟-apt.txt
+              echo "2、 若无法运行或提示没有执行权限：" >> 使用说明-麒麟-apt.txt
+              echo "   右键点击该文件 → 选择「属性」→ 打开「权限」标签 → 勾选「允许作为程序执行」→ 关闭后双击运行。" >> 使用说明-麒麟-apt.txt
+              echo "" >> 使用说明-麒麟-apt.txt
+              echo "3、 若打开时出现 AT-SPI 相关提示，可忽略不影响使用。" >> 使用说明-麒麟-apt.txt
+              echo "" >> 使用说明-麒麟-apt.txt
+              echo "✨ 功能：获取机器硬件信息，提供投标API服务 | 📝 版本：2.1.0" >> 使用说明-麒麟-apt.txt
+            '
+          mkdir -p upload
+          cp "$PROJ/src-tauri/machine-code-tool-kylin-apt.AppImage" upload/machine-code-tool-kylin.AppImage
+          # 使用英文文件名 README.txt 避免解压后中文文件名乱码（如 浣跨颗璇存槑.txt）
+          cp "$PROJ/src-tauri/使用说明-麒麟-apt.txt" upload/README.txt
+          chmod +x upload/machine-code-tool-kylin.AppImage
+          ls -la upload/
+
+      - name: 安装Rust（macOS / Windows）
+        if: matrix.os != 'ubuntu-latest'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target == 'universal-apple-darwin' && 'aarch64-apple-darwin,x86_64-apple-darwin' || matrix.target }}
+
+      - name: 缓存Cargo依赖
+        if: matrix.os != 'ubuntu-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: 安装 Tauri CLI v1（macOS / Windows）
+        if: matrix.os != 'ubuntu-latest'
+        run: |
+          cargo install --git https://github.com/tauri-apps/tauri --branch 1.x tauri-cli
+          cargo tauri --version
+        shell: bash
+
+
+      - name: 构建（macOS / Windows）
+        if: matrix.os != 'ubuntu-latest'
+        run: |
+          set -e
+          cd src-tauri
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            echo "🍎 macOS构建：创建通用二进制文件"
+          
+            # 构建两种架构（当前目录已在 src-tauri，产物在 src-tauri/target/<triple>/release/）
+            echo "📦 构建 Apple Silicon (aarch64) 版本..."
+            cargo tauri build --target aarch64-apple-darwin --bundles none --verbose
+            echo "📁 aarch64 构建产物:"
+            ls -la target/aarch64-apple-darwin/release/ 2>/dev/null || true
+          
+            echo "📦 构建 Intel (x86_64) 版本..."
+            cargo tauri build --target x86_64-apple-darwin --bundles none --verbose
+            echo "📁 x86_64 构建产物:"
+            ls -la target/x86_64-apple-darwin/release/ 2>/dev/null || true
+          
+            # macOS 可执行文件名来自 tauri.conf.json 的 productName（机器码获取工具）
+            BIN_NAME="机器码获取工具"
+            A64="target/aarch64-apple-darwin/release/$BIN_NAME"
+            X64="target/x86_64-apple-darwin/release/$BIN_NAME"
+            [ ! -f "$A64" ] && echo "❌ 缺少 $A64" && exit 1
+            [ ! -f "$X64" ] && echo "❌ 缺少 $X64" && exit 1
+          
+            echo "🔧 创建通用二进制文件..."
+            lipo -create "$A64" "$X64" -output machine-code-tool-universal
+          
+            echo "📁 验证文件位置："
+            ls -la machine-code-tool-universal
+          
+            # 验证通用二进制文件
+            echo "🔍 验证通用二进制文件："
+            lipo -info machine-code-tool-universal
+            file machine-code-tool-universal
+          
+            echo "✅ macOS通用版本创建完成"
+          else
+            echo "🚀 Windows构建（Tauri 1.x，需 withGlobalTauri 以注入 __TAURI__）"
+            grep -A 5 '"build"' tauri.conf.json || true
+            cargo tauri build --target ${{ matrix.target }} --bundles none --verbose
+          
+            # 显示构建产物（exe 名为 productName：机器码获取工具.exe）
+            echo "📋 构建产物:"
+            ls -la target/${{ matrix.target }}/release/*.exe 2>/dev/null | head -20
+          fi
+        shell: bash
+
+      - name: 复制并重命名构建产物（Linux 已在容器步骤中写入 upload/）
+        if: matrix.os != 'ubuntu-latest'
+        run: |
+          mkdir -p upload
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            # macOS: 复制通用二进制文件
+            if [ -f "src-tauri/machine-code-tool-universal" ]; then
+              cp src-tauri/machine-code-tool-universal upload/${{ matrix.asset_name }}
+              chmod +x upload/${{ matrix.asset_name }}
+              echo "✅ macOS通用版本文件已准备完成"
+            else
+              echo "❌ 未找到macOS通用二进制文件"
+              echo "检查可用文件："
+              find . -name "machine-code-tool*" -type f 2>/dev/null || echo "未找到任何machine-code-tool文件"
+              exit 1
+            fi
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            # Windows: 复制 exe（可执行文件名来自 tauri.conf.json 的 productName：机器码获取工具.exe）
+            WIN_BIN="机器码获取工具.exe"
+            WIN_EXE=""
+            if [ -f "src-tauri/target/${{ matrix.target }}/release/$WIN_BIN" ]; then
+              WIN_EXE="src-tauri/target/${{ matrix.target }}/release/$WIN_BIN"
+            elif [ -f "src-tauri/target/release/$WIN_BIN" ]; then
+              WIN_EXE="src-tauri/target/release/$WIN_BIN"
+            elif [ -f "src-tauri/target/${{ matrix.target }}/release/machine-code-tool.exe" ]; then
+              WIN_EXE="src-tauri/target/${{ matrix.target }}/release/machine-code-tool.exe"
+            elif [ -f "src-tauri/target/release/machine-code-tool.exe" ]; then
+              WIN_EXE="src-tauri/target/release/machine-code-tool.exe"
+            fi
+            if [ -n "$WIN_EXE" ]; then
+              cp "$WIN_EXE" upload/${{ matrix.asset_name }}.exe
+              echo "✅ Windows 文件已准备完成 (from $WIN_EXE)"
+            else
+              echo "❌ 未找到 $WIN_BIN 或 machine-code-tool.exe"
+              echo "已检查: src-tauri/target/${{ matrix.target }}/release/ 与 src-tauri/target/release/"
+              find src-tauri/target -name "*.exe" -type f 2>/dev/null || true
+              exit 1
+            fi
+          else
+            echo "❌ 未知平台: ${{ matrix.os }}"
+            exit 1
+          fi
+          ls -la upload/
+        shell: bash
+
+      - name: 生成平台说明文件
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            if [ "${{ matrix.asset_name }}" = "machine-code-tool-windows-32" ]; then
+              echo "🚀 机器码获取工具 - Windows版(32位)" > upload/使用说明.txt
+            else
+              echo "🚀 机器码获取工具 - Windows版(64位)" > upload/使用说明.txt
+            fi
+            echo "=========================" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "💻 使用步骤：" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "1、 解压下载的压缩包" >> upload/使用说明.txt
+            echo "   右键点击下载的 zip 文件 → 选择「解压到当前文件夹」或「全部解压」。" >> upload/使用说明.txt
+            echo "   解压后会看到「${{ matrix.asset_name }}.exe」和本说明文件。" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "2、 运行程序" >> upload/使用说明.txt
+            echo "   双击「${{ matrix.asset_name }}.exe」即可打开工具。" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "3、 若出现「无法验证发布者」或「Windows 已保护您的电脑」" >> upload/使用说明.txt
+            echo "   属于正常提示。请点击「更多信息」→ 再点击「仍要运行」即可正常使用。" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "✨ 功能：获取机器硬件信息，提供投标API服务" >> upload/使用说明.txt
+            echo "📝 版本：2.1.0" >> upload/使用说明.txt
+          
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            echo "🍎 机器码获取工具 - macOS版（通用版本）" > upload/使用说明.txt
+            echo "=================================" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "🎉 此版本同时支持 Intel 和 Apple Silicon 芯片！" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "💻 使用步骤：" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "1、 运行程序" >> upload/使用说明.txt
+            echo "   双击「${{ matrix.asset_name }}」即可打开工具。" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "2、 若提示「无法打开，因为来自身份不明的开发者」，任选一种方式即可：" >> upload/使用说明.txt
+            echo "   方式一：右键点击该文件 → 选择「打开」→ 在弹窗中再次点击「打开」。之后可直接双击运行。" >> upload/使用说明.txt
+            echo "   方式二：打开「系统设置」→ 左侧点「隐私与安全」→ 在右侧「安全性」区域找到被阻止的本程序 → 点击「仍要打开」→ 在确认弹窗中再点「打开」。" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "✨ 功能：获取机器硬件信息，提供投标API服务" >> upload/使用说明.txt
+            echo "📝 版本：2.1.0（通用版本）" >> upload/使用说明.txt
+          fi
+        shell: bash
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: upload/
+          retention-days: 30
