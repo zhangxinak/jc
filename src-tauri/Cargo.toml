@@ -1,0 +1,90 @@
+[package]
+name = "machine-code-tool"
+version = "2.1.0"
+description = "机器码获取工具 - 跨平台硬件信息获取"
+authors = ["Glodon Technology Co., Ltd."]
+license = "Proprietary"
+repository = ""
+default-run = "machine-code-tool"
+edition = "2021"
+rust-version = "1.60"
+
+[[bin]]
+name = "machine-code-tool"
+path = "src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+# 直接使用官方 1.x 分支（crates.io 上 tauri-build 1.x 已不可用）
+tauri-build = { git = "https://github.com/tauri-apps/tauri", branch = "1.x", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+# 与 tauri-build 一致，从 1.x 分支取
+tauri = { git = "https://github.com/tauri-apps/tauri", branch = "1.x", features = ["devtools"] }
+
+# Web服务框架
+tokio = { version = "1.0", features = ["full"] }
+warp = { version = "0.3", default-features = false, features = ["compression"] }
+
+# 系统信息获取
+sysinfo = "0.29"
+mac_address = "1.1"
+
+# 跨平台系统调用
+libc = "0.2"
+
+# 错误处理
+anyhow = "1.0"
+thiserror = "1.0"
+
+# 日志
+log = "0.4"
+env_logger = "0.10"
+
+# 配置文件
+config = "0.13"
+dirs = "5.0"
+
+# 加密
+sha2 = "0.10"
+hex = "0.4"
+
+# HTTP客户端 - 使用原生TLS，避免OpenSSL依赖
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+
+# 时间处理
+chrono = { version = "0.4", features = ["serde"] }
+
+# 浏览器打开
+webbrowser = "0.8"
+
+# Windows特定依赖
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = [
+    "winbase", "winreg", "winerror", "winnt", "processthreadsapi",
+    "handleapi", "sysinfoapi", "winuser", "shellapi"
+] }
+wmi = "0.13"
+
+# macOS特定依赖
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.9"
+system-configuration = "0.5"
+
+# Linux特定依赖 (银河麒麟)
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = "0.27"
+
+[features]
+# Tauri v1: 生产构建使用 filesystem protocol
+default = [ "custom-protocol" ]
+custom-protocol = [ "tauri/custom-protocol" ]
+
+# 确保使用原生TLS实现，避免OpenSSL依赖
+[profile.release]
+strip = true  # 减小二进制文件大小
+lto = true    # 链接时优化
+codegen-units = 1  # 更好的优化

@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>机器码获取工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+            background: white;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-separator {
+            height: 2px;
+            background: #e5e7eb;
+            width: 100%;
+            flex-shrink: 0;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .auth-button {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+
+        .auth-button.cancel {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+
+        .machine-info {
+            flex: 1;
+        }
+
+        .info-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+
+
+        .info-label {
+            width: 120px;
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .info-value {
+            flex: 1;
+            font-size: 14px;
+            color: #2c3e50;
+            word-break: break-all;
+            padding-left: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .info-value.unauthorized {
+            color: #95a5a6;
+            font-style: italic;
+            opacity: 0.8;
+        }
+
+        .software-section {
+            margin-top: -5px;
+            margin-bottom: 15px;
+        }
+
+        .software-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .software-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .software-label {
+            width: 60px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .software-value {
+            font-size: 14px;
+            color: #333;
+            padding-left: 15px;
+        }
+
+        .update-link {
+            color: #4a90e2;
+            text-decoration: none;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .update-link:hover {
+            text-decoration: underline;
+        }
+
+        .footer {
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+        }
+
+        .footer-link {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+
+        .footer-link:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        /* 自定义弹框样式 */
+        .custom-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 1000;
+        }
+
+        .custom-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            width: 600px;
+            max-width: 90vw;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .custom-dialog-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .custom-dialog-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .custom-dialog-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .custom-dialog-close:hover {
+            color: #374151;
+        }
+
+        .custom-dialog-content {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #374151;
+            white-space: pre-wrap;
+        }
+
+        .content {
+            flex: 1;
+            padding: 15px 20px 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部分隔线 -->
+        <div class="top-separator"></div>
+
+        <!-- 主要内容 -->
+        <div class="content">
+            <!-- 机器码信息部分 -->
+            <div class="machine-info">
+                <div class="section-header">
+                    <h3 class="section-title">机器码信息</h3>
+                    <button id="authButton" class="auth-button" onclick="toggleAuth()">开启授权</button>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">网卡MAC地址</span>
+                        <span id="macAddress" class="info-value">——未授权——</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">主板序列号</span>
+                        <span id="motherboardSerial" class="info-value">——未授权——</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">CPU序列号</span>
+                        <span id="cpuSerial" class="info-value">——未授权——</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">硬盘序列号</span>
+                        <span id="diskSerial" class="info-value">——未授权——</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 软件信息部分 -->
+            <div class="software-section">
+                <h3 class="software-title">软件信息</h3>
+                <div class="software-item">
+                    <span class="software-label">版本:</span>
+                    <span id="softwareVersion" class="software-value">2.1.0</span>
+                    <a href="#" class="update-link" onclick="checkUpdate()">检查更新</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部链接 -->
+        <div class="footer">
+            <a href="#" class="footer-link" onclick="openUserAgreement()">用户协议</a>
+            <a href="#" class="footer-link" onclick="openPrivacyPolicy()">隐私策略</a>
+           <!--  <a href="#" class="footer-link" onclick="toggleDevTools()" style="color: #999; font-size: 12px;">调试日志</a> -->
+        </div>
+    </div>
+
+    <script>
+        // 全局状态
+        let isAuthorized = false;
+        let isRefreshing = false;
+        
+        // Tauri API引用
+        let tauriInvoke = null;
+
+        // 日志收集
+        let logMessages = [];
+        
+        // 重写console.log来收集日志
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            const timestamp = new Date().toLocaleTimeString();
+            logMessages.push(`[${timestamp}] ${message}`);
+            // 保持最新100条日志
+            if (logMessages.length > 100) {
+                logMessages = logMessages.slice(-100);
+            }
+            originalConsoleLog.apply(console, args);
+        };
+
+        function getTauriInvoke() {
+            if (!window.__TAURI__) return null;
+            if (window.__TAURI__.core && window.__TAURI__.core.invoke) return window.__TAURI__.core.invoke;
+            if (window.__TAURI__.tauri && window.__TAURI__.tauri.invoke) return window.__TAURI__.tauri.invoke;
+            if (window.__TAURI__.invoke) return window.__TAURI__.invoke;
+            return null;
+        }
+        async function waitForTauriAPI(maxAttempts = 100, interval = 100) {
+            for (let i = 0; i < maxAttempts; i++) {
+                if (getTauriInvoke()) {
+                    console.log(`Tauri API在第${i + 1}次尝试后可用`);
+                    return true;
+                }
+                await new Promise(resolve => setTimeout(resolve, interval));
+            }
+            console.error(`等待${maxAttempts * interval}ms后，Tauri API仍不可用`);
+            return false;
+        }
+
+        async function initializeApp() {
+            console.log('初始化应用...');
+            tauriInvoke = getTauriInvoke();
+            if (!tauriInvoke) {
+                console.error('初始化时Tauri API仍不可用');
+                console.log('可用的API:', window.__TAURI__ ? Object.keys(window.__TAURI__) : 'window.__TAURI__ 不存在');
+                handleNonTauriEnvironment();
+                return;
+            }
+            
+            await checkAuthStatus();
+            console.log('初始化完成，授权状态:', isAuthorized);
+            if (isAuthorized) {
+                console.log('已授权，获取机器信息...');
+                await getMachineInfo();
+            } else {
+                console.log('未授权，显示未授权状态');
+                clearMachineInfo();
+            }
+        }
+
+        async function checkAuthStatus() {
+            if (!tauriInvoke) return;
+            
+            try {
+                const result = await tauriInvoke('get_auth_status_gui');
+                console.log('授权状态结果:', result);
+                isAuthorized = result.authorized || false;
+                updateAuthUI();
+            } catch (error) {
+                console.error('检查授权状态失败:', error);
+                isAuthorized = false;
+                updateAuthUI();
+            }
+        }
+
+        function updateAuthUI() {
+            const authButton = document.getElementById('authButton');
+            if (isAuthorized) {
+                authButton.textContent = '取消授权';
+                authButton.classList.add('cancel');
+            } else {
+                authButton.textContent = '开启授权';
+                authButton.classList.remove('cancel');
+            }
+        }
+
+        async function toggleAuth() {
+            if (!tauriInvoke) {
+                console.error('Tauri API不可用');
+                return;
+            }
+
+            if (isRefreshing) {
+                console.log('正在处理中，请稍候...');
+                return;
+            }
+
+            try {
+                isRefreshing = true;
+                const newAuthStatus = !isAuthorized;
+                console.log('切换授权状态到:', newAuthStatus);
+                const result = await tauriInvoke('set_auth_status_gui', { request: { authorized: newAuthStatus } });
+                console.log('切换授权结果:', result);
+                
+                if (result.success) {
+                    isAuthorized = newAuthStatus;
+                    updateAuthUI();
+                    
+                    if (isAuthorized) {
+                        await getMachineInfo();
+                    } else {
+                        clearMachineInfo();
+                    }
+                } else {
+                    console.error('授权切换失败:', result.message);
+                }
+            } catch (error) {
+                console.error('切换授权状态失败:', error);
+            } finally {
+                isRefreshing = false;
+            }
+        }
+
+        async function getMachineInfo() {
+            if (!tauriInvoke) return;
+            
+            try {
+                console.log('获取机器信息...');
+                const result = await tauriInvoke('get_machine_info_gui');
+                console.log('机器信息结果:', result);
+                
+                if (result.success && result.data) {
+                    updateMachineInfo(result.data);
+                } else {
+                    console.error('获取机器信息失败:', result.message);
+                    clearMachineInfo();
+                }
+            } catch (error) {
+                console.error('获取机器信息异常:', error);
+                clearMachineInfo();
+            }
+        }
+
+        function updateMachineInfo(data) {
+            document.getElementById('macAddress').textContent = data.mac || '——未授权——';
+            document.getElementById('motherboardSerial').textContent = data.motherboard || '——未授权——';
+            document.getElementById('cpuSerial').textContent = data.cpu || '——未授权——';
+            document.getElementById('diskSerial').textContent = data.disk || '——未授权——';
+            document.getElementById('softwareVersion').textContent = data.version || '2.1.0';
+            
+            // 移除未授权样式
+            const values = document.querySelectorAll('.info-value');
+            values.forEach(value => value.classList.remove('unauthorized'));
+        }
+
+        function clearMachineInfo() {
+            document.getElementById('macAddress').textContent = '——未授权——';
+            document.getElementById('motherboardSerial').textContent = '——未授权——';
+            document.getElementById('cpuSerial').textContent = '——未授权——';
+            document.getElementById('diskSerial').textContent = '——未授权——';
+            
+            // 添加未授权样式
+            const values = document.querySelectorAll('.info-value');
+            values.forEach(value => value.classList.add('unauthorized'));
+        }
+
+        function handleNonTauriEnvironment() {
+            console.log('非Tauri环境，使用模拟数据');
+            clearMachineInfo();
+            
+            const authButton = document.getElementById('authButton');
+            if (authButton) {
+                authButton.disabled = true;
+                authButton.textContent = '程序启动中...';
+            }
+        }
+
+        function extractContent(result) {
+            if (!result || typeof result !== 'object') return null;
+            if (result.v != null && typeof result.v === 'string') return result.v;
+            if (result.data && result.data.v != null) return result.data.v;
+            if (result.value != null && typeof result.value === 'string') return result.value;
+            if (typeof result === 'string') return result;
+            return null;
+        }
+
+        async function openUserAgreement() {
+            if (tauriInvoke) {
+                console.log('正在通过后端获取用户协议...');
+                try {
+                    const result = await tauriInvoke('fetch_remote_content', { 
+                        url: 'https://zcpt.xysstgs.com/base/sys/setting/findConfByKey?key=hardware_information_tool_user_agreement'
+                    });
+                    console.log('后端获取用户协议成功:', result);
+                    const content = extractContent(result);
+                    if (content) {
+                        showCustomDialog('用户协议', content);
+                        return;
+                    }
+                } catch (error) {
+                    console.log('后端获取用户协议失败:', error);
+                    const errMsg = (error && (error.message || error.toString())) ? (error.message || error.toString()) : '未知错误';
+                    showCustomDialog('用户协议', '无法加载在线内容：' + errMsg + '\n\n请检查网络连接后重试。');
+                    return;
+                }
+            }
+            showCustomDialog('用户协议', '本地默认用户协议');
+        }
+
+        async function openPrivacyPolicy() {
+            if (tauriInvoke) {
+                console.log('正在通过后端获取隐私策略...');
+                try {
+                    const result = await tauriInvoke('fetch_remote_content', { 
+                        url: 'https://zcpt.xysstgs.com/base/sys/setting/findConfByKey?key=hardware_information_tool_privacy_policy'
+                    });
+                    console.log('后端获取隐私策略成功:', result);
+                    const content = extractContent(result);
+                    if (content) {
+                        showCustomDialog('隐私策略', content);
+                        return;
+                    }
+                } catch (error) {
+                    console.log('后端获取隐私策略失败:', error);
+                    const errMsg = (error && (error.message || error.toString())) ? (error.message || error.toString()) : '未知错误';
+                    showCustomDialog('隐私策略', '无法加载在线内容：' + errMsg + '\n\n请检查网络连接后重试。');
+                    return;
+                }
+            }
+            showCustomDialog('隐私策略', '本地默认隐私策略');
+        }
+
+        function checkUpdate() {
+            showCustomDialog('检查更新', '当前已是最新版本');
+        }
+
+        async function toggleDevTools() {
+            // 显示收集到的日志
+            if (logMessages.length > 0) {
+                const logContent = logMessages.join('\n');
+                showCustomDialog('调试日志', logContent);
+            } else {
+                showCustomDialog('调试日志', '暂无日志信息\n\n请先点击"用户协议"或"隐私策略"按钮生成日志');
+            }
+            
+            // 同时尝试打开开发者工具
+            try {
+                if (tauriInvoke) {
+                    await tauriInvoke('toggle_devtools');
+                }
+            } catch (error) {
+                console.log('切换开发者工具失败:', error);
+            }
+        }
+
+        // 自定义弹框函数
+        function showCustomDialog(title, content) {
+            document.getElementById('customDialogTitle').textContent = title;
+            document.getElementById('customDialogContent').textContent = content;
+            document.getElementById('customDialogOverlay').style.display = 'block';
+        }
+
+        function closeCustomDialog() {
+            document.getElementById('customDialogOverlay').style.display = 'none';
+        }
+
+        // 点击遮罩层关闭弹框
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'customDialogOverlay') {
+                closeCustomDialog();
+            }
+        });
+
+        // 添加快捷键开启开发者工具 (F12 或 Ctrl+Shift+I)，优先使用已初始化的 tauriInvoke
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) {
+                e.preventDefault();
+                if (tauriInvoke) {
+                    tauriInvoke('toggle_devtools').catch(function() {});
+                } else {
+                    var inv = getTauriInvoke();
+                    if (inv) inv('toggle_devtools').catch(function() {});
+                }
+            }
+        });
+
+        function forceRepaint() {
+            try {
+                document.body.style.opacity = '0.99';
+                requestAnimationFrame(function() {
+                    document.body.offsetHeight;
+                    requestAnimationFrame(function() {
+                        document.body.style.opacity = '';
+                    });
+                });
+            } catch (e) {}
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOM加载完成，等待Tauri API...');
+            const tauriAvailable = await waitForTauriAPI();
+
+            if (tauriAvailable) {
+                console.log('Tauri API可用，开始初始化应用');
+                await initializeApp();
+                forceRepaint();
+            } else {
+                console.error('Tauri API不可用，使用备用方案');
+                handleNonTauriEnvironment();
+                forceRepaint();
+            }
+        });
+    </script>
+
+    <!-- 自定义弹框 -->
+    <div id="customDialogOverlay" class="custom-dialog-overlay">
+        <div class="custom-dialog">
+            <div class="custom-dialog-header">
+                <div id="customDialogTitle" class="custom-dialog-title"></div>
+                <button class="custom-dialog-close" onclick="closeCustomDialog()">&times;</button>
+            </div>
+            <div id="customDialogContent" class="custom-dialog-content"></div>
+        </div>
+    </div>
+    
+</body>
+</html>
