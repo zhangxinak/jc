@@ -1,0 +1,23 @@
+# Tauri v1 + WebKit2GTK 4.0（apt 安装），不编源码，约 5～10 分钟。
+# 目标机只需安装 libwebkit2gtk-4.0 即可运行（Ubuntu 20.04 / 麒麟 V10 等 glibc 2.31 系统）。
+FROM ubuntu:20.04
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl wget file \
+    build-essential \
+    libwebkit2gtk-4.0-dev libgtk-3-dev librsvg2-dev \
+    libssl-dev libayatana-appindicator3-dev \
+    libxdo-dev libjavascriptcoregtk-4.0-dev \
+    imagemagick \
+    && rm -rf /var/lib/apt/lists/*
+
+# 从 Git 1.x 分支安装 tauri-cli，使用仓库 Cargo.lock 锁定依赖，避免 crates.io 上 pxfm 等 edition 2024 导致解析失败（仓库无 v1.5.9 tag）
+RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
+    && . /root/.cargo/env \
+    && cargo install --git https://github.com/tauri-apps/tauri --branch 1.x tauri-cli
+
+ENV PATH="/root/.cargo/bin:$PATH"
+
+WORKDIR /workspace
+CMD ["bash"]
