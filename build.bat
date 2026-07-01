@@ -43,23 +43,27 @@ if not "%FETCH_EXIT%"=="0" (
     exit /b %FETCH_EXIT%
 )
 
-set "IMPORT_LIB_DIR="
-for /d /r "%USERPROFILE%\.cargo\registry\src" %%d in (windows_x86_64_msvc-0.48.5) do (
-    if exist "%%d\lib\windows.0.48.5.lib" (
-        set "IMPORT_LIB_DIR=%%d\lib"
-        goto :found_import_lib
+set "IMPORT_LIB_DIRS="
+set "FOUND_WINDOWS_LIB="
+for /d /r "%USERPROFILE%\.cargo\registry\src" %%d in (windows_x86_64_msvc-*) do (
+    if exist "%%d\lib" (
+        set "IMPORT_LIB_DIRS=%%d\lib;%IMPORT_LIB_DIRS%"
+        if exist "%%d\lib\windows.lib" set "FOUND_WINDOWS_LIB=1"
     )
 )
 
-:found_import_lib
-if "%IMPORT_LIB_DIR%"=="" (
-    echo Error: windows_x86_64_msvc 0.48.5 import library was not found.
-    echo Run this once and retry: cargo fetch
+if "%IMPORT_LIB_DIRS%"=="" (
+    echo Error: windows_x86_64_msvc import libraries were not found.
     pause
     exit /b 1
 )
-set "LIB=%IMPORT_LIB_DIR%;%LIB%"
-echo Using import library directory: %IMPORT_LIB_DIR%
+if "%FOUND_WINDOWS_LIB%"=="" (
+    echo Error: windows.lib was not found in windows_x86_64_msvc import libraries.
+    pause
+    exit /b 1
+)
+set "LIB=%IMPORT_LIB_DIRS%;%LIB%"
+echo Using import library directories: %IMPORT_LIB_DIRS%
 
 echo.
 echo Building release executable...
