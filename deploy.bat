@@ -2,8 +2,8 @@
 setlocal
 chcp 65001 >nul
 
-set "WIN7_TARGET=x86_64-win7-windows-msvc"
-set "SOURCE_EXE=src-tauri\target\%WIN7_TARGET%\release\machine-code-tool.exe"
+set "WINDOWS_TARGET=x86_64-pc-windows-msvc"
+set "SOURCE_EXE=src-tauri\target\%WINDOWS_TARGET%\release\machine-code-tool.exe"
 set "DEST_DIR=..\jc-base\jc-base-view\src\main\resources\static\downloads"
 
 echo Deploying machine-code-tool to Java project...

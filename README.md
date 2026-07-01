@@ -29,7 +29,7 @@
    - **machine-code-tool-windows**：Windows 64 位
    - **machine-code-tool-windows-32**：Windows 32 位
 
-本工程使用 **Tauri 1.x**，请勿用本地 Tauri 2.0 构建；推荐仅通过上述 Actions 获取安装包。
+本工程使用 **Tauri 1.x**，请勿用本地 Tauri 2.0 构建；Windows 产物固定使用 Rust 1.77.2 构建以兼容 Windows 7；推荐仅通过上述 Actions 获取安装包。
 
 ## 使用说明
 
