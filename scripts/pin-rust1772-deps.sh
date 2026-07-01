@@ -26,8 +26,8 @@ PRECISE_PINS=(
   "time 0.3.41"
   "ignore 0.4.23"
   "globset 0.4.16"
-  "indexmap 2.13.0"
 )
+# indexmap =2.13.0 已在 Cargo.toml 直接锁定，勿 cargo update -p indexmap（1.x/2.x 并存会歧义）
 
 for pin in "${PRECISE_PINS[@]}"; do
   set -- $pin

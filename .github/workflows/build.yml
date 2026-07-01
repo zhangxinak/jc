@@ -147,11 +147,12 @@ jobs:
           echo "=== 生成 Cargo.lock ==="
           cargo generate-lockfile
           echo "=== 精确锁定已知问题依赖 ==="
-          for pin in "time 0.3.41" "ignore 0.4.23" "globset 0.4.16" "indexmap 2.13.0"; do
+          for pin in "time 0.3.41" "ignore 0.4.23" "globset 0.4.16"; do
             set -- $pin
             echo "  -> $1 = $2"
             cargo update -p "$1" --precise "$2"
           done
+          # indexmap 已在 Cargo.toml 中锁定 =2.13.0；勿用 cargo update -p indexmap（1.x/2.x 并存会歧义）
           echo "=== 预下载依赖（提前暴露 edition2024 问题）==="
           cargo fetch --locked
           echo "=== 锁定结果 ==="
