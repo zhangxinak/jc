@@ -131,7 +131,39 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: 安装 Tauri CLI v1（macOS / Windows）
+      - name: Prepare Windows import libraries
+        if: matrix.os == 'windows-latest'
+        run: |
+          Set-Location src-tauri
+          $env:RUSTUP_TOOLCHAIN = "nightly"
+          cargo fetch --target "${{ matrix.target }}"
+
+          $registry = Join-Path $env:USERPROFILE ".cargo\registry\src"
+          if ("${{ matrix.target }}" -eq "x86_64-win7-windows-msvc") {
+            $crate = "windows_x86_64_msvc-0.48.5"
+          } else {
+            $crate = "windows_i686_msvc-0.48.5"
+          }
+
+          $crateDir = Get-ChildItem -Path $registry -Directory -Recurse -Filter $crate | Select-Object -First 1
+          if (-not $crateDir) {
+            Write-Error "Missing windows-targets 0.48.5 import library crate: $crate"
+            Get-ChildItem -Path $registry -Directory -Recurse -Filter "windows_*_msvc-0.48.5" | Select-Object -ExpandProperty FullName
+            exit 1
+          }
+
+          $importLibDir = Join-Path $crateDir.FullName "lib"
+          $importLib = Join-Path $importLibDir "windows.0.48.5.lib"
+          if (-not (Test-Path $importLib)) {
+            Write-Error "Missing import library: $importLib"
+            exit 1
+          }
+
+          Write-Host "Using import library directory: $importLibDir"
+          "LIB=$importLibDir;$env:LIB" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        shell: pwsh
+
+      - name: Install Tauri CLI v1 (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           cargo install --git https://github.com/tauri-apps/tauri --branch 1.x tauri-cli

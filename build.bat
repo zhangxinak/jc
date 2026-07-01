@@ -33,6 +33,33 @@ if errorlevel 1 (
 )
 
 set "RUSTUP_TOOLCHAIN=nightly"
+pushd src-tauri
+cargo fetch
+set "FETCH_EXIT=%ERRORLEVEL%"
+popd
+if not "%FETCH_EXIT%"=="0" (
+    echo Error: failed to fetch Cargo dependencies.
+    pause
+    exit /b %FETCH_EXIT%
+)
+
+set "IMPORT_LIB_DIR="
+for /d /r "%USERPROFILE%\.cargo\registry\src" %%d in (windows_x86_64_msvc-0.48.5) do (
+    if exist "%%d\lib\windows.0.48.5.lib" (
+        set "IMPORT_LIB_DIR=%%d\lib"
+        goto :found_import_lib
+    )
+)
+
+:found_import_lib
+if "%IMPORT_LIB_DIR%"=="" (
+    echo Error: windows_x86_64_msvc 0.48.5 import library was not found.
+    echo Run this once and retry: cargo fetch
+    pause
+    exit /b 1
+)
+set "LIB=%IMPORT_LIB_DIR%;%LIB%"
+echo Using import library directory: %IMPORT_LIB_DIR%
 
 echo.
 echo Building release executable...
