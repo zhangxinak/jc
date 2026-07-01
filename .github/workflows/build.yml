@@ -123,19 +123,44 @@ jobs:
         with:
           path: |
             ~/.cargo/git
-            src-tauri/target/
-          key: ${{ runner.os }}-cargo-1772-v2-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml', 'scripts/pin-rust1772-deps.sh') }}
+            ${{ steps.project-dir.outputs.dir }}/src-tauri/target/
+          key: ${{ runner.os }}-cargo-1772-v3-${{ hashFiles(format('{0}/src-tauri/Cargo.lock', steps.project-dir.outputs.dir), format('{0}/src-tauri/Cargo.toml', steps.project-dir.outputs.dir)) }}
 
       - name: 生成/校验 Cargo.lock（Rust 1.77.2 兼容）
         if: matrix.os != 'ubuntu-latest'
-        run: bash scripts/pin-rust1772-deps.sh
+        run: |
+          set -euo pipefail
+          PROJ="${{ steps.project-dir.outputs.dir }}"
+          cd "$PROJ/src-tauri"
+          echo "=== 清理可能含 edition2024 manifest 的缓存 ==="
+          shopt -s nullglob
+          for dir in "$HOME/.cargo/registry/src/"index.crates.io-*; do
+            rm -rf "$dir"/time-0.3.5* \
+                   "$dir"/time-core-0.1.[5-9]* \
+                   "$dir"/ignore-0.4.2[4-9]* \
+                   "$dir"/ignore-0.4.3* \
+                   "$dir"/globset-0.4.2* \
+                   "$dir"/globset-0.4.3* \
+                   2>/dev/null || true
+          done
+          echo "=== 生成 Cargo.lock ==="
+          cargo generate-lockfile
+          echo "=== 精确锁定已知问题依赖 ==="
+          for pin in "time 0.3.41" "ignore 0.4.23" "globset 0.4.16" "clap_lex 0.7.4"; do
+            set -- $pin
+            echo "  -> $1 = $2"
+            cargo update -p "$1" --precise "$2"
+          done
+          echo "=== 锁定结果 ==="
+          grep -E '^name = "(time|ignore|globset|clap_lex|time-core|time-macros)"' -A1 Cargo.lock || true
         shell: bash
 
       - name: 构建（macOS / Windows）
         if: matrix.os != 'ubuntu-latest'
         run: |
           set -e
-          cd src-tauri
+          PROJ="${{ steps.project-dir.outputs.dir }}"
+          cd "$PROJ/src-tauri"
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             echo "🍎 macOS构建：创建通用二进制文件"
           
