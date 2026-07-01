@@ -20,10 +20,10 @@ jobs:
             target: universal-apple-darwin
             asset_name: machine-code-tool-macos
           - os: windows-latest
-            target: x86_64-win7-windows-msvc
+            target: x86_64-pc-windows-msvc
             asset_name: machine-code-tool-windows
           - os: windows-latest
-            target: i686-win7-windows-msvc
+            target: i686-pc-windows-msvc
             asset_name: machine-code-tool-windows-32
 
     runs-on: ${{ matrix.os }}
@@ -110,16 +110,10 @@ jobs:
           ls -la upload/
 
       - name: 安装Rust（macOS / Windows）
-        if: matrix.os == 'macos-latest'
+        if: matrix.os != 'ubuntu-latest'
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
-
-      - name: Install Rust (Windows 7 target)
-        if: matrix.os == 'windows-latest'
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rust-src
+          targets: ${{ matrix.target == 'universal-apple-darwin' && 'aarch64-apple-darwin,x86_64-apple-darwin' || matrix.target }}
 
       - name: 缓存Cargo依赖
         if: matrix.os != 'ubuntu-latest'
@@ -180,7 +174,7 @@ jobs:
           else
             echo "🚀 Windows构建（Tauri 1.x，需 withGlobalTauri 以注入 __TAURI__）"
             grep -A 5 '"build"' tauri.conf.json || true
-            RUSTUP_TOOLCHAIN=nightly cargo tauri build --target ${{ matrix.target }} --bundles none --verbose -- -Z build-std=std,panic_abort
+            cargo tauri build --target ${{ matrix.target }} --bundles none --verbose
           
             # 显示构建产物（exe 名为 productName：机器码获取工具.exe）
             echo "📋 构建产物:"

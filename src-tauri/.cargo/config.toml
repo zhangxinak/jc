@@ -1,2 +1,0 @@
-[target.'cfg(target_os = "windows")']
-rustflags = ["--cfg", "getrandom_backend=\"windows_legacy\""]

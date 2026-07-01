@@ -25,7 +25,6 @@
 
 - **主工作流**（`build.yml`）已更新：Linux 使用 `libwebkit2gtk-4.0-dev` + Tauri CLI 1.8，Windows/macOS 仅安装 Tauri CLI 1.8，无系统 WebView 依赖变更。
 - **打包产物**：Windows 仍为 MSVC 构建 + 安装包，macOS 仍为 universal 或单架构 app，格式与使用方式不变。
-- **Windows 7 注意事项**：Rust 可执行文件已使用 Win7 target 构建；但 Tauri GUI 仍依赖 Microsoft WebView2。当前 Microsoft Edge / WebView2 Runtime 已不支持 Windows 7，若 Win7 机器上安装或启动的是新版 WebView2，仍可能由 WebView2 触发 `ProcessPrng` 报错。Windows 10/11 不受该限制影响。
 
 结论：**Windows、macOS 行为与降级前一致；Linux 仅依赖从 4.1 改为 4.0，对功能无影响。**
 
@@ -33,8 +32,8 @@
 
 ## 3. Windows 对 32 位系统兼容吗？
 
-- **当前 CI**：同时构建 **x86_64-win7-windows-msvc**（64 位）和 **i686-win7-windows-msvc**（32 位），Windows 产物最低兼容 Windows 7 SP1，并可继续在 Windows 10/11 上运行。
-- **Win7 兼容构建要求**：Windows target 使用 nightly + `rust-src` + `-Z build-std=std,panic_abort` 构建标准库，避免普通 Windows target 导入 Win7 不存在的 `ProcessPrng`。
+- **当前 CI**：只构建 **x86_64-pc-windows-msvc**（64 位），产物为 64 位 exe，**不能在 32 位 Windows 上运行**。
+- **若需要支持 32 位**：Tauri v1 + WebView2 支持 32 位（目标 `i686-pc-windows-msvc`），需在 CI 中增加 32 位构建（安装 i686 工具链、构建并打包 32 位 exe）。目前未配置，故**当前不兼容 32 位 Windows**。
 
 ---
 

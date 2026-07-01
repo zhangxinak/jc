@@ -13,7 +13,7 @@
 
 ## 系统要求
 
-- **Windows**: 7 SP1 及以上，32/64 位。Windows 7 需要可用的旧版 WebView2 Runtime；Windows 10/11 可使用当前 WebView2 Runtime。
+- **Windows**: 7 SP1 及以上，32/64 位
 - **macOS**: 10.13 及以上
 - **银河麒麟 / Linux**: 麒麟 V10 或 Ubuntu 20.04 等，glibc 2.31+，x86_64。AppImage 单文件免安装，通常无需额外装 WebKit。
 
