@@ -136,9 +136,7 @@ jobs:
           rm -rf ~/.cargo/registry/src/*/time-0.3.5* \
                  ~/.cargo/registry/src/*/time-core-0.1.[5-9]* 2>/dev/null || true
           cargo generate-lockfile
-          cargo update -p time --precise 0.3.36
-          cargo update -p time-core --precise 0.1.4
-          cargo update -p time-macros --precise 0.2.18
+          cargo update -p time --precise 0.3.41
           echo "=== 已锁定的 time 相关依赖 ==="
           grep -E '^name = "(time|time-core|time-macros)"' -A1 Cargo.lock || true
         shell: bash
