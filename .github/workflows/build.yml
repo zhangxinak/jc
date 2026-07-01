@@ -122,23 +122,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
             ~/.cargo/git
-            target/
-          key: ${{ runner.os }}-cargo-1772-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml') }}
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-1772-v2-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml', 'scripts/pin-rust1772-deps.sh') }}
 
       - name: 生成/校验 Cargo.lock（Rust 1.77.2 兼容）
         if: matrix.os != 'ubuntu-latest'
-        run: |
-          set -e
-          cd src-tauri
-          # 清理可能已缓存的 edition2024 crate 源码，避免 Cargo 1.77.2 解析 manifest 失败
-          rm -rf ~/.cargo/registry/src/*/time-0.3.5* \
-                 ~/.cargo/registry/src/*/time-core-0.1.[5-9]* 2>/dev/null || true
-          cargo generate-lockfile
-          cargo update -p time --precise 0.3.41
-          echo "=== 已锁定的 time 相关依赖 ==="
-          grep -E '^name = "(time|time-core|time-macros)"' -A1 Cargo.lock || true
+        run: bash scripts/pin-rust1772-deps.sh
         shell: bash
 
       - name: 构建（macOS / Windows）
