@@ -34,7 +34,7 @@
 ## 3. Windows 对 32 位系统兼容吗？
 
 - **当前 CI**：同时构建 **x86_64-win7-windows-msvc**（64 位）和 **i686-win7-windows-msvc**（32 位），Windows 产物最低兼容 Windows 7 SP1，并可继续在 Windows 10/11 上运行。
-- **Win7 兼容构建要求**：Windows target 使用 nightly + `rust-src` + `-Z build-std=std,panic_abort` 构建标准库，避免普通 Windows target 导入 Win7 不存在的 `ProcessPrng`。Tauri CLI v1 会用 `rustup target list` 校验 target，无法识别没有预编译标准库的 Win7 Tier 3 target，因此 Windows CI 直接使用 `cargo build --release --target ...` 生成 exe。
+- **Win7 兼容构建要求**：Windows target 使用 nightly + `rust-src` + `-Z build-std=std,panic_abort` 构建标准库，避免普通 Windows target 导入 Win7 不存在的 `ProcessPrng`。
 
 ---
 
