@@ -127,14 +127,6 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: 安装 Tauri CLI v1（macOS / Windows）
-        if: matrix.os != 'ubuntu-latest'
-        run: |
-          cargo install --git https://github.com/tauri-apps/tauri --branch 1.x tauri-cli
-          cargo tauri --version
-        shell: bash
-
-
       - name: 构建（macOS / Windows）
         if: matrix.os != 'ubuntu-latest'
         run: |
@@ -143,23 +135,25 @@ jobs:
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             echo "🍎 macOS构建：创建通用二进制文件"
           
-            # 构建两种架构（当前目录已在 src-tauri，产物在 src-tauri/target/<triple>/release/）
             echo "📦 构建 Apple Silicon (aarch64) 版本..."
-            cargo tauri build --target aarch64-apple-darwin --bundles none --verbose
+            cargo build --release --target aarch64-apple-darwin --verbose
             echo "📁 aarch64 构建产物:"
             ls -la target/aarch64-apple-darwin/release/ 2>/dev/null || true
           
             echo "📦 构建 Intel (x86_64) 版本..."
-            cargo tauri build --target x86_64-apple-darwin --bundles none --verbose
+            cargo build --release --target x86_64-apple-darwin --verbose
             echo "📁 x86_64 构建产物:"
             ls -la target/x86_64-apple-darwin/release/ 2>/dev/null || true
           
-            # macOS 可执行文件名来自 tauri.conf.json 的 productName（机器码获取工具）
-            BIN_NAME="机器码获取工具"
-            A64="target/aarch64-apple-darwin/release/$BIN_NAME"
-            X64="target/x86_64-apple-darwin/release/$BIN_NAME"
-            [ ! -f "$A64" ] && echo "❌ 缺少 $A64" && exit 1
-            [ ! -f "$X64" ] && echo "❌ 缺少 $X64" && exit 1
+            # cargo build 产物名为 Cargo.toml [[bin]] 名；cargo tauri build 可能用 productName
+            A64=""
+            X64=""
+            for name in machine-code-tool "机器码获取工具"; do
+              if [ -f "target/aarch64-apple-darwin/release/$name" ]; then A64="target/aarch64-apple-darwin/release/$name"; fi
+              if [ -f "target/x86_64-apple-darwin/release/$name" ]; then X64="target/x86_64-apple-darwin/release/$name"; fi
+            done
+            [ -z "$A64" ] && echo "❌ 缺少 aarch64 可执行文件" && exit 1
+            [ -z "$X64" ] && echo "❌ 缺少 x86_64 可执行文件" && exit 1
           
             echo "🔧 创建通用二进制文件..."
             lipo -create "$A64" "$X64" -output machine-code-tool-universal
@@ -167,18 +161,15 @@ jobs:
             echo "📁 验证文件位置："
             ls -la machine-code-tool-universal
           
-            # 验证通用二进制文件
             echo "🔍 验证通用二进制文件："
             lipo -info machine-code-tool-universal
             file machine-code-tool-universal
           
             echo "✅ macOS通用版本创建完成"
           else
-            echo "🚀 Windows构建（Tauri 1.x，需 withGlobalTauri 以注入 __TAURI__）"
-            grep -A 5 '"build"' tauri.conf.json || true
-            cargo tauri build --target ${{ matrix.target }} --bundles none --verbose
+            echo "🚀 Windows构建（Rust 1.77.2，兼容 Win7；直接 cargo build，无需 tauri-cli）"
+            cargo build --release --target ${{ matrix.target }} --verbose
           
-            # 显示构建产物（exe 名为 productName：机器码获取工具.exe）
             echo "📋 构建产物:"
             ls -la target/${{ matrix.target }}/release/*.exe 2>/dev/null | head -20
           fi

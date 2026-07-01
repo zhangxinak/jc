@@ -31,19 +31,19 @@ cd src-tauri
 cargo build --release
 
 if errorlevel 1 (
-    echo 构建失败，尝试安装Tauri CLI...
-    cargo install tauri-cli
-    
+    echo 构建失败，尝试安装 Tauri CLI（需 Rust stable，不能用 1.77.2）...
+    rustup toolchain install stable >nul 2>&1
+    cargo +stable install tauri-cli --version 1.5.14 --locked
     if errorlevel 1 (
-        echo Tauri CLI安装失败
+        echo Tauri CLI 安装失败
         cd ..
         pause
         exit /b 1
     )
     
-    echo 使用Tauri CLI构建...
+    echo 使用 Tauri CLI 构建...
     cd ..
-    cargo tauri build
+    cargo +1.77.2 tauri build
     
     if errorlevel 1 (
         echo 构建失败
