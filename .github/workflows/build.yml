@@ -126,37 +126,38 @@ jobs:
             ${{ steps.project-dir.outputs.dir }}/src-tauri/target/
           key: ${{ runner.os }}-cargo-1772-v3-${{ hashFiles(format('{0}/src-tauri/Cargo.lock', steps.project-dir.outputs.dir), format('{0}/src-tauri/Cargo.toml', steps.project-dir.outputs.dir)) }}
 
-      - name: 生成/校验 Cargo.lock（Rust 1.77.2 兼容）
+      - name: 安装 stable 工具链（仅用于生成/锁定 Cargo.lock）
+        if: matrix.os != 'ubuntu-latest'
+        run: rustup toolchain install stable --profile minimal
+        shell: bash
+
+      - name: 生成/校验 Cargo.lock（stable 解析 + 1.77.2 构建）
         if: matrix.os != 'ubuntu-latest'
         run: |
           set -euo pipefail
           PROJ="${{ steps.project-dir.outputs.dir }}"
           cd "$PROJ/src-tauri"
-          echo "=== 清理可能含 edition2024 manifest 的缓存 ==="
-          shopt -s nullglob
-          for dir in "$HOME/.cargo/registry/src/"index.crates.io-*; do
-            rm -rf "$dir"/time-0.3.5* \
-                   "$dir"/time-core-0.1.[5-9]* \
-                   "$dir"/ignore-0.4.2[4-9]* \
-                   "$dir"/ignore-0.4.3* \
-                   "$dir"/globset-0.4.2[4-9]* \
-                   "$dir"/globset-0.4.3* \
-                   "$dir"/indexmap-2.1[4-9]* \
-                   2>/dev/null || true
-          done
-          echo "=== 生成 Cargo.lock ==="
-          cargo generate-lockfile
-          echo "=== 精确锁定已知问题依赖 ==="
-          for pin in "time 0.3.41" "ignore 0.4.23" "globset 0.4.16"; do
-            set -- $pin
-            echo "  -> $1 = $2"
-            cargo update -p "$1" --precise "$2"
-          done
-          # indexmap 已在 Cargo.toml 中锁定 =2.13.0；勿用 cargo update -p indexmap（1.x/2.x 并存会歧义）
-          echo "=== 预下载依赖（提前暴露 edition2024 问题）==="
+          if [ -f Cargo.lock ]; then
+            echo "=== 使用已提交的 Cargo.lock ==="
+          else
+            echo "=== [stable] 生成 Cargo.lock 并降级 edition2024 依赖 ==="
+            cargo +stable generate-lockfile
+            pin_pkg() {
+              local spec="$1" ver="$2"
+              echo "  -> $spec = $ver"
+              cargo +stable update -p "$spec" --precise "$ver"
+            }
+            pin_pkg time 0.3.41
+            pin_pkg ignore 0.4.23
+            pin_pkg globset 0.4.16
+            pin_pkg home 0.5.11
+            cargo +stable update -p 'indexmap@2' --precise 2.13.0
+            cargo +stable fetch --locked
+            echo "=== Cargo.lock 已生成（仅含 edition2021 依赖版本）==="
+            grep -E '^name = "(time|ignore|globset|indexmap|home|time-core)"' -A1 Cargo.lock || true
+          fi
+          echo "=== [1.77.2] 校验 lockfile 可解析 ==="
           cargo fetch --locked
-          echo "=== 锁定结果 ==="
-          grep -E '^name = "(time|ignore|globset|indexmap|time-core|time-macros)"' -A1 Cargo.lock || true
         shell: bash
 
       - name: 构建（macOS / Windows）

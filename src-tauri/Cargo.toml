@@ -29,6 +29,7 @@ time = "=0.3.41"
 ignore = "=0.4.23"
 globset = "=0.4.16"
 indexmap = "=2.13.0"
+home = "=0.5.11"
 
 # Web服务框架
 tokio = { version = "1.0", features = ["full"] }
