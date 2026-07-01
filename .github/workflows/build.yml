@@ -140,32 +140,27 @@ jobs:
 
           $registry = Join-Path $env:USERPROFILE ".cargo\registry\src"
           if ("${{ matrix.target }}" -eq "x86_64-win7-windows-msvc") {
-            $cratePattern = "windows_x86_64_msvc-*"
+            $crate = "windows_x86_64_msvc-0.48.5"
           } else {
-            $cratePattern = "windows_i686_msvc-*"
+            $crate = "windows_i686_msvc-0.48.5"
           }
 
-          $importLibDirs = Get-ChildItem -Path $registry -Directory -Recurse -Filter $cratePattern |
-            ForEach-Object { Join-Path $_.FullName "lib" } |
-            Where-Object { Test-Path $_ }
-
-          if (-not $importLibDirs) {
-            Write-Error "Missing windows-targets import library crates: $cratePattern"
-            Get-ChildItem -Path $registry -Directory -Recurse -Filter "windows_*_msvc-*" | Select-Object -ExpandProperty FullName
+          $crateDir = Get-ChildItem -Path $registry -Directory -Recurse -Filter $crate | Select-Object -First 1
+          if (-not $crateDir) {
+            Write-Error "Missing windows-targets 0.48.5 import library crate: $crate"
+            Get-ChildItem -Path $registry -Directory -Recurse -Filter "windows_*_msvc-0.48.5" | Select-Object -ExpandProperty FullName
             exit 1
           }
 
-          $windowsLib = $importLibDirs | Where-Object { Test-Path (Join-Path $_ "windows.lib") } | Select-Object -First 1
-          if (-not $windowsLib) {
-            Write-Error "Missing windows.lib in resolved import library directories"
-            $importLibDirs | ForEach-Object { Write-Host $_; Get-ChildItem -Path $_ -Filter "*.lib" | Select-Object -ExpandProperty Name }
+          $importLibDir = Join-Path $crateDir.FullName "lib"
+          $importLib = Join-Path $importLibDir "windows.0.48.5.lib"
+          if (-not (Test-Path $importLib)) {
+            Write-Error "Missing import library: $importLib"
             exit 1
           }
 
-          Write-Host "Using import library directories:"
-          $importLibDirs | ForEach-Object { Write-Host $_ }
-          $libValue = (($importLibDirs | Select-Object -Unique) -join ";") + ";$env:LIB"
-          "LIB=$libValue" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Using import library directory: $importLibDir"
+          "LIB=$importLibDir;$env:LIB" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
         shell: pwsh
 
       - name: Install Tauri CLI v1 (macOS)
