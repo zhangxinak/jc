@@ -136,28 +136,7 @@ jobs:
         run: |
           set -euo pipefail
           PROJ="${{ steps.project-dir.outputs.dir }}"
-          cd "$PROJ/src-tauri"
-          if [ -f Cargo.lock ]; then
-            echo "=== 使用已提交的 Cargo.lock ==="
-          else
-            echo "=== [stable] 生成 Cargo.lock 并降级 edition2024 依赖 ==="
-            cargo +stable generate-lockfile
-            pin_pkg() {
-              local spec="$1" ver="$2"
-              echo "  -> $spec = $ver"
-              cargo +stable update -p "$spec" --precise "$ver"
-            }
-            pin_pkg time 0.3.41
-            pin_pkg ignore 0.4.23
-            pin_pkg globset 0.4.16
-            pin_pkg home 0.5.11
-            cargo +stable update -p 'indexmap@2' --precise 2.13.0
-            cargo +stable fetch --locked
-            echo "=== Cargo.lock 已生成（仅含 edition2021 依赖版本）==="
-            grep -E '^name = "(time|ignore|globset|indexmap|home|time-core)"' -A1 Cargo.lock || true
-          fi
-          echo "=== [1.77.2] 校验 lockfile 可解析 ==="
-          cargo fetch --locked
+          bash "$PROJ/scripts/pin-rust1772-deps.sh"
         shell: bash
 
       - name: 构建（macOS / Windows）

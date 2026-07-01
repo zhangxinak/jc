@@ -62,7 +62,7 @@
 ## 故障排除
 
 - **Windows 7 报「无法定位程序输入点 ProcessPrng 于 bcryptprimitives.dll」**：构建时使用了 Rust **1.78 及以上**。Rust 1.78 起不再支持 Windows 7。请使用项目固定的 **1.77.2** 重新构建（根目录 `rust-toolchain.toml` 已配置；本地可执行 `rustup override set 1.77.2`），或通过 GitHub Actions 重新下载产物。
-- **CI 报 `edition2024`（如 `time-0.3.53`、`ignore-0.4.26`）**：crates.io 新依赖需 Rust 1.78+。项目已在 `Cargo.toml` 锁定 `time`、`ignore` 等版本；CI 运行 `scripts/pin-rust1772-deps.sh` 生成 lockfile。本地构建前可执行 `bash scripts/pin-rust1772-deps.sh`。
+- **CI 报 `edition2024`（如 `getrandom-0.4.3`、`time-0.3.53`、`ignore-0.4.26`）**：无 `Cargo.lock` 时 cargo 会拉 crates.io 最新依赖，许多 crate 已切 edition2024，Cargo 1.77.2 无法解析。项目已通过 `Cargo.toml` + `src-tauri/Cargo.lock` 锁定兼容版本；**必须提交 `Cargo.lock`**。根因通常是 `uuid`/`tempfile` 新版本引入 `getrandom 0.4`，已在 `scripts/edition2021-pins.txt` 统一维护 pin 列表。本地可执行 `bash scripts/pin-rust1772-deps.sh` 重新生成 lockfile。
 - **端口 18888 被占用**：修改配置文件中的 `port` 或关闭占用程序
 - **获取硬件信息失败**：确认已点击「开启授权」；Windows 可尝试管理员权限
 - **麒麟 / Linux 报 GLIBC_2.xx not found**：当前 Linux 包在 Ubuntu 20.04 环境构建，需 glibc 2.31+；麒麟 V10 一般满足
