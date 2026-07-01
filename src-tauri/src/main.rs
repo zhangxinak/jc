@@ -176,6 +176,7 @@ fn cors_preflight_response() -> warp::http::Response<Vec<u8>> {
 
 // HTTP服务器相关函数
 async fn start_http_server(state: Arc<Mutex<AppState>>) {
+    use warp::http::StatusCode;
 
     // CORS：允许跨域（GET/POST 响应也需 CORS 头，由 cors 层添加）
     let cors = warp::cors()
