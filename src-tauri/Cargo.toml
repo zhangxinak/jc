@@ -25,7 +25,7 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 indexmap = { version = "1.9.3", features = ["std"] }
 # 与 tauri-build 一致，从 1.x 分支取
-tauri = { git = "https://github.com/tauri-apps/tauri", branch = "1.x", features = ["devtools"] }
+tauri = { git = "https://github.com/tauri-apps/tauri", branch = "1.x", features = ["devtools", "dialog-all", "shell-open", "window-all"] }
 
 # Web服务框架
 tokio = { version = "1.0", features = ["full"] }
