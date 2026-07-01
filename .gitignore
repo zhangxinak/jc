@@ -1,7 +1,8 @@
 # Rust
 /target/
 **/*.rs.bk
-Cargo.lock
+# Keep application builds reproducible, especially for the Windows Rust 1.77.2 build.
+!/src-tauri/Cargo.lock
 
 # Tauri
 /src-tauri/target/
