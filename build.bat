@@ -34,22 +34,10 @@ if errorlevel 1 (
 
 set "RUSTUP_TOOLCHAIN=nightly"
 
-echo Checking Tauri CLI...
-cargo tauri --version >nul 2>&1
-if errorlevel 1 (
-    echo Installing Tauri CLI v1...
-    cargo install --git https://github.com/tauri-apps/tauri --branch 1.x tauri-cli
-    if errorlevel 1 (
-        echo Error: failed to install Tauri CLI v1.
-        pause
-        exit /b 1
-    )
-)
-
 echo.
 echo Building release executable...
 pushd src-tauri
-cargo tauri build --target %WIN7_TARGET% --bundles none --verbose -- -Z build-std=std,panic_abort
+cargo build --release --target %WIN7_TARGET% -Z build-std=std,panic_abort
 set "BUILD_EXIT=%ERRORLEVEL%"
 popd
 

@@ -132,7 +132,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: 安装 Tauri CLI v1（macOS / Windows）
-        if: matrix.os != 'ubuntu-latest'
+        if: matrix.os == 'macos-latest'
         run: |
           cargo install --git https://github.com/tauri-apps/tauri --branch 1.x tauri-cli
           cargo tauri --version
@@ -180,7 +180,10 @@ jobs:
           else
             echo "🚀 Windows构建（Tauri 1.x，需 withGlobalTauri 以注入 __TAURI__）"
             grep -A 5 '"build"' tauri.conf.json || true
-            RUSTUP_TOOLCHAIN=nightly cargo tauri build --target ${{ matrix.target }} --bundles none --verbose -- -Z build-std=std,panic_abort
+            # Tauri CLI v1 rejects tier-3 Win7 targets because rustup has no prebuilt std for them.
+            # Build the executable directly with Cargo and build-std instead; this project publishes the exe, not an MSI bundle.
+            RUSTUP_TOOLCHAIN=nightly rustc --print target-list | grep -x "${{ matrix.target }}"
+            RUSTUP_TOOLCHAIN=nightly cargo build --release --target ${{ matrix.target }} -Z build-std=std,panic_abort
           
             # 显示构建产物（exe 名为 productName：机器码获取工具.exe）
             echo "📋 构建产物:"
