@@ -25,7 +25,6 @@ PRECISE_PINS=(
   "time 0.3.41"
   "ignore 0.4.23"
   "globset 0.4.16"
-  "clap_lex 0.7.4"
 )
 
 for pin in "${PRECISE_PINS[@]}"; do
@@ -35,4 +34,4 @@ for pin in "${PRECISE_PINS[@]}"; do
 done
 
 echo "=== 锁定结果 ==="
-grep -E '^name = "(time|ignore|globset|clap_lex|time-core|time-macros)"' -A1 Cargo.lock || true
+grep -E '^name = "(time|ignore|globset|time-core|time-macros)"' -A1 Cargo.lock || true

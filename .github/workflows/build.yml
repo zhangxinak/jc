@@ -146,13 +146,13 @@ jobs:
           echo "=== 生成 Cargo.lock ==="
           cargo generate-lockfile
           echo "=== 精确锁定已知问题依赖 ==="
-          for pin in "time 0.3.41" "ignore 0.4.23" "globset 0.4.16" "clap_lex 0.7.4"; do
+          for pin in "time 0.3.41" "ignore 0.4.23" "globset 0.4.16"; do
             set -- $pin
             echo "  -> $1 = $2"
             cargo update -p "$1" --precise "$2"
           done
           echo "=== 锁定结果 ==="
-          grep -E '^name = "(time|ignore|globset|clap_lex|time-core|time-macros)"' -A1 Cargo.lock || true
+          grep -E '^name = "(time|ignore|globset|time-core|time-macros)"' -A1 Cargo.lock || true
         shell: bash
 
       - name: 构建（macOS / Windows）
