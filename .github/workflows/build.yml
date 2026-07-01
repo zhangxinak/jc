@@ -20,10 +20,10 @@ jobs:
             target: universal-apple-darwin
             asset_name: machine-code-tool-macos
           - os: windows-latest
-            target: x86_64-pc-windows-msvc
+            target: x86_64-win7-windows-msvc
             asset_name: machine-code-tool-windows
           - os: windows-latest
-            target: i686-pc-windows-msvc
+            target: i686-win7-windows-msvc
             asset_name: machine-code-tool-windows-32
 
     runs-on: ${{ matrix.os }}
@@ -115,11 +115,11 @@ jobs:
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
-      - name: Install Rust (Windows legacy toolchain)
+      - name: Install Rust (Windows 7 target)
         if: matrix.os == 'windows-latest'
-        uses: dtolnay/rust-toolchain@1.77.2
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          targets: ${{ matrix.target }}
+          components: rust-src
 
       - name: 缓存Cargo依赖
         if: matrix.os != 'ubuntu-latest'
@@ -130,6 +130,43 @@ jobs:
             ~/.cargo/git
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Prepare Windows import libraries
+        if: matrix.os == 'windows-latest'
+        run: |
+          Set-Location src-tauri
+          $env:RUSTUP_TOOLCHAIN = "nightly"
+          cargo fetch --target "${{ matrix.target }}"
+
+          $registry = Join-Path $env:USERPROFILE ".cargo\registry\src"
+          if ("${{ matrix.target }}" -eq "x86_64-win7-windows-msvc") {
+            $cratePattern = "windows_x86_64_msvc-*"
+          } else {
+            $cratePattern = "windows_i686_msvc-*"
+          }
+
+          $importLibDirs = Get-ChildItem -Path $registry -Directory -Recurse -Filter $cratePattern |
+            ForEach-Object { Join-Path $_.FullName "lib" } |
+            Where-Object { Test-Path $_ }
+
+          if (-not $importLibDirs) {
+            Write-Error "Missing windows-targets import library crates: $cratePattern"
+            Get-ChildItem -Path $registry -Directory -Recurse -Filter "windows_*_msvc-*" | Select-Object -ExpandProperty FullName
+            exit 1
+          }
+
+          $windowsLib = $importLibDirs | Where-Object { Test-Path (Join-Path $_ "windows.lib") } | Select-Object -First 1
+          if (-not $windowsLib) {
+            Write-Error "Missing windows.lib in resolved import library directories"
+            $importLibDirs | ForEach-Object { Write-Host $_; Get-ChildItem -Path $_ -Filter "*.lib" | Select-Object -ExpandProperty Name }
+            exit 1
+          }
+
+          Write-Host "Using import library directories:"
+          $importLibDirs | ForEach-Object { Write-Host $_ }
+          $libValue = (($importLibDirs | Select-Object -Unique) -join ";") + ";$env:LIB"
+          "LIB=$libValue" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        shell: pwsh
 
       - name: Install Tauri CLI v1 (macOS)
         if: matrix.os == 'macos-latest'
@@ -180,9 +217,10 @@ jobs:
           else
             echo "🚀 Windows构建（Tauri 1.x，需 withGlobalTauri 以注入 __TAURI__）"
             grep -A 5 '"build"' tauri.conf.json || true
-            # Rust 1.77.2 is the last stable line before the Windows tier-1 baseline moved to Windows 10 in Rust 1.78.
-            rustc --version
-            cargo build --release --target ${{ matrix.target }}
+            # Tauri CLI v1 rejects tier-3 Win7 targets because rustup has no prebuilt std for them.
+            # Build the executable directly with Cargo and build-std instead; this project publishes the exe, not an MSI bundle.
+            RUSTUP_TOOLCHAIN=nightly rustc --print target-list | grep -x "${{ matrix.target }}"
+            RUSTUP_TOOLCHAIN=nightly cargo build --release --target ${{ matrix.target }} -Z build-std=std,panic_abort
           
             # 显示构建产物（exe 名为 productName：机器码获取工具.exe）
             echo "📋 构建产物:"

@@ -1,15 +1,13 @@
 @echo off
 setlocal
 
-set "WINDOWS_TARGET=x86_64-pc-windows-msvc"
-set "RUST_TOOLCHAIN=1.77.2"
+set "WIN7_TARGET=x86_64-win7-windows-msvc"
 set "EXE_NAME=machine-code-tool.exe"
-set "TARGET_EXE=src-tauri\target\%WINDOWS_TARGET%\release\%EXE_NAME%"
+set "TARGET_EXE=src-tauri\target\%WIN7_TARGET%\release\%EXE_NAME%"
 set "RELEASE_EXE=release\machine-code-tool-windows.exe"
 
 echo Building machine-code-tool for Windows 7 compatibility...
-echo Rust toolchain: %RUST_TOOLCHAIN%
-echo Target: %WINDOWS_TARGET%
+echo Target: %WIN7_TARGET%
 echo.
 
 where cargo >nul 2>&1
@@ -21,32 +19,56 @@ if errorlevel 1 (
 
 where rustup >nul 2>&1
 if errorlevel 1 (
-    echo Error: rustup was not found.
+    echo Error: rustup was not found. The Windows 7 target requires nightly + rust-src.
     pause
     exit /b 1
 )
 
-echo Installing Rust %RUST_TOOLCHAIN% and target...
-rustup toolchain install %RUST_TOOLCHAIN%
+echo Installing/updating nightly toolchain with rust-src...
+rustup toolchain install nightly --component rust-src
 if errorlevel 1 (
-    echo Error: failed to install Rust %RUST_TOOLCHAIN%.
+    echo Error: failed to install nightly toolchain or rust-src.
     pause
     exit /b 1
 )
 
-rustup target add %WINDOWS_TARGET% --toolchain %RUST_TOOLCHAIN%
-if errorlevel 1 (
-    echo Error: failed to install target %WINDOWS_TARGET%.
+set "RUSTUP_TOOLCHAIN=nightly"
+pushd src-tauri
+cargo fetch
+set "FETCH_EXIT=%ERRORLEVEL%"
+popd
+if not "%FETCH_EXIT%"=="0" (
+    echo Error: failed to fetch Cargo dependencies.
+    pause
+    exit /b %FETCH_EXIT%
+)
+
+set "IMPORT_LIB_DIRS="
+set "FOUND_WINDOWS_LIB="
+for /d /r "%USERPROFILE%\.cargo\registry\src" %%d in (windows_x86_64_msvc-*) do (
+    if exist "%%d\lib" (
+        set "IMPORT_LIB_DIRS=%%d\lib;%IMPORT_LIB_DIRS%"
+        if exist "%%d\lib\windows.lib" set "FOUND_WINDOWS_LIB=1"
+    )
+)
+
+if "%IMPORT_LIB_DIRS%"=="" (
+    echo Error: windows_x86_64_msvc import libraries were not found.
     pause
     exit /b 1
 )
-
-set "RUSTUP_TOOLCHAIN=%RUST_TOOLCHAIN%"
+if "%FOUND_WINDOWS_LIB%"=="" (
+    echo Error: windows.lib was not found in windows_x86_64_msvc import libraries.
+    pause
+    exit /b 1
+)
+set "LIB=%IMPORT_LIB_DIRS%;%LIB%"
+echo Using import library directories: %IMPORT_LIB_DIRS%
 
 echo.
 echo Building release executable...
 pushd src-tauri
-cargo build --release --target %WINDOWS_TARGET%
+cargo build --release --target %WIN7_TARGET% -Z build-std=std,panic_abort
 set "BUILD_EXIT=%ERRORLEVEL%"
 popd
 
@@ -75,5 +97,5 @@ echo.
 echo Build succeeded.
 echo Release file: %RELEASE_EXE%
 echo.
-echo This build uses Rust %RUST_TOOLCHAIN% and the legacy getrandom backend for Windows 7 compatibility.
+echo This build uses the Rust Windows 7 target to avoid importing ProcessPrng from bcryptprimitives.dll.
 pause
