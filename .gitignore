@@ -1,7 +1,7 @@
 # Rust
 /target/
 **/*.rs.bk
-Cargo.lock
+# Cargo.lock 需提交，固定 Rust 1.77.2 兼容依赖（勿忽略）
 
 # Tauri
 /src-tauri/target/

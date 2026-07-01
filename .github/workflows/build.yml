@@ -125,7 +125,23 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-1772-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml') }}
+
+      - name: 生成/校验 Cargo.lock（Rust 1.77.2 兼容）
+        if: matrix.os != 'ubuntu-latest'
+        run: |
+          set -e
+          cd src-tauri
+          # 清理可能已缓存的 edition2024 crate 源码，避免 Cargo 1.77.2 解析 manifest 失败
+          rm -rf ~/.cargo/registry/src/*/time-0.3.5* \
+                 ~/.cargo/registry/src/*/time-core-0.1.[5-9]* 2>/dev/null || true
+          cargo generate-lockfile
+          cargo update -p time --precise 0.3.36
+          cargo update -p time-core --precise 0.1.4
+          cargo update -p time-macros --precise 0.2.18
+          echo "=== 已锁定的 time 相关依赖 ==="
+          grep -E '^name = "(time|time-core|time-macros)"' -A1 Cargo.lock || true
+        shell: bash
 
       - name: 构建（macOS / Windows）
         if: matrix.os != 'ubuntu-latest'
@@ -136,12 +152,12 @@ jobs:
             echo "🍎 macOS构建：创建通用二进制文件"
           
             echo "📦 构建 Apple Silicon (aarch64) 版本..."
-            cargo build --release --target aarch64-apple-darwin --verbose
+            cargo build --locked --release --target aarch64-apple-darwin --verbose
             echo "📁 aarch64 构建产物:"
             ls -la target/aarch64-apple-darwin/release/ 2>/dev/null || true
           
             echo "📦 构建 Intel (x86_64) 版本..."
-            cargo build --release --target x86_64-apple-darwin --verbose
+            cargo build --locked --release --target x86_64-apple-darwin --verbose
             echo "📁 x86_64 构建产物:"
             ls -la target/x86_64-apple-darwin/release/ 2>/dev/null || true
           
@@ -168,7 +184,7 @@ jobs:
             echo "✅ macOS通用版本创建完成"
           else
             echo "🚀 Windows构建（Rust 1.77.2，兼容 Win7；直接 cargo build，无需 tauri-cli）"
-            cargo build --release --target ${{ matrix.target }} --verbose
+            cargo build --locked --release --target ${{ matrix.target }} --verbose
           
             echo "📋 构建产物:"
             ls -la target/${{ matrix.target }}/release/*.exe 2>/dev/null | head -20

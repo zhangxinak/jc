@@ -28,7 +28,11 @@ echo.
 
 echo 尝试直接构建Rust项目...
 cd src-tauri
-cargo build --release
+if exist "Cargo.lock" (
+    cargo build --locked --release
+) else (
+    cargo build --release
+)
 
 if errorlevel 1 (
     echo 构建失败，尝试安装 Tauri CLI（需 Rust stable，不能用 1.77.2）...
