@@ -71,7 +71,6 @@ winapi = { version = "0.3", features = [
 ] }
 wmi = "0.13"
 
-# The Win7 tier-3 targets need these import-lib crates to add windows.0.48.5.lib to link.exe's search path.
 [target.'cfg(all(windows, target_env = "msvc", target_arch = "x86_64"))'.dependencies]
 windows_x86_64_msvc = "0.48.5"
 
