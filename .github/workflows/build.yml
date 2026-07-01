@@ -139,20 +139,23 @@ jobs:
                    "$dir"/time-core-0.1.[5-9]* \
                    "$dir"/ignore-0.4.2[4-9]* \
                    "$dir"/ignore-0.4.3* \
-                   "$dir"/globset-0.4.2* \
+                   "$dir"/globset-0.4.2[4-9]* \
                    "$dir"/globset-0.4.3* \
+                   "$dir"/indexmap-2.1[4-9]* \
                    2>/dev/null || true
           done
           echo "=== 生成 Cargo.lock ==="
           cargo generate-lockfile
           echo "=== 精确锁定已知问题依赖 ==="
-          for pin in "time 0.3.41" "ignore 0.4.23" "globset 0.4.16"; do
+          for pin in "time 0.3.41" "ignore 0.4.23" "globset 0.4.16" "indexmap 2.13.0"; do
             set -- $pin
             echo "  -> $1 = $2"
             cargo update -p "$1" --precise "$2"
           done
+          echo "=== 预下载依赖（提前暴露 edition2024 问题）==="
+          cargo fetch --locked
           echo "=== 锁定结果 ==="
-          grep -E '^name = "(time|ignore|globset|time-core|time-macros)"' -A1 Cargo.lock || true
+          grep -E '^name = "(time|ignore|globset|indexmap|time-core|time-macros)"' -A1 Cargo.lock || true
         shell: bash
 
       - name: 构建（macOS / Windows）
