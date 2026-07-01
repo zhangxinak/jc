@@ -11,6 +11,18 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo 检查Rust版本（Windows 7 兼容需 1.77.2，1.78+ 会在 Win7 上报 ProcessPrng 错误）...
+for /f "tokens=2" %%v in ('rustc --version 2^>nul') do set RUST_VER=%%v
+echo 当前 Rust 版本: %RUST_VER%
+echo %RUST_VER% | findstr /B "1.77.2" >nul
+if errorlevel 1 (
+    echo.
+    echo 警告: 当前 Rust 版本不是 1.77.2，构建产物可能无法在 Windows 7 上运行。
+    echo 请执行: rustup toolchain install 1.77.2 ^&^& rustup override set 1.77.2
+    echo 或在项目根目录已配置 rust-toolchain.toml，进入本目录后 rustup 应自动切换。
+    echo.
+)
+
 echo Rust环境检查通过
 echo.
 

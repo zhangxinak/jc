@@ -61,6 +61,7 @@
 
 ## 故障排除
 
+- **Windows 7 报「无法定位程序输入点 ProcessPrng 于 bcryptprimitives.dll」**：构建时使用了 Rust **1.78 及以上**。Rust 1.78 起不再支持 Windows 7。请使用项目固定的 **1.77.2** 重新构建（根目录 `rust-toolchain.toml` 已配置；本地可执行 `rustup override set 1.77.2`），或通过 GitHub Actions 重新下载产物。
 - **端口 18888 被占用**：修改配置文件中的 `port` 或关闭占用程序
 - **获取硬件信息失败**：确认已点击「开启授权」；Windows 可尝试管理员权限
 - **麒麟 / Linux 报 GLIBC_2.xx not found**：当前 Linux 包在 Ubuntu 20.04 环境构建，需 glibc 2.31+；麒麟 V10 一般满足

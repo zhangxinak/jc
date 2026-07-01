@@ -1,0 +1,6 @@
+# Rust 1.78+ 在 Windows 上使用 ProcessPrng（仅 Win8+ 可用），会导致 Win7 报错：
+# 「无法定位程序输入点 ProcessPrng 于动态链接库 bcryptprimitives.dll」
+# 固定 1.77.2 为最后一个官方支持 Windows 7 的稳定版。
+[toolchain]
+channel = "1.77.2"
+targets = ["x86_64-pc-windows-msvc", "i686-pc-windows-msvc"]

@@ -111,8 +111,10 @@ jobs:
 
       - name: 安装Rust（macOS / Windows）
         if: matrix.os != 'ubuntu-latest'
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          # 1.78+ 在 Win7 上会因 ProcessPrng 无法启动，须固定 1.77.2
+          toolchain: 1.77.2
           targets: ${{ matrix.target == 'universal-apple-darwin' && 'aarch64-apple-darwin,x86_64-apple-darwin' || matrix.target }}
 
       - name: 缓存Cargo依赖
@@ -248,6 +250,10 @@ jobs:
             echo "" >> upload/使用说明.txt
             echo "3、 若出现「无法验证发布者」或「Windows 已保护您的电脑」" >> upload/使用说明.txt
             echo "   属于正常提示。请点击「更多信息」→ 再点击「仍要运行」即可正常使用。" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "4、 Windows 7 用户额外说明" >> upload/使用说明.txt
+            echo "   需已安装 WebView2 运行时（Evergreen 引导程序）。" >> upload/使用说明.txt
+            echo "   若报「无法定位程序输入点 ProcessPrng」，说明安装包并非用 Rust 1.77.2 构建，请重新下载最新 CI 产物。" >> upload/使用说明.txt
             echo "" >> upload/使用说明.txt
             echo "✨ 功能：获取机器硬件信息，提供投标API服务" >> upload/使用说明.txt
             echo "📝 版本：2.1.0" >> upload/使用说明.txt
