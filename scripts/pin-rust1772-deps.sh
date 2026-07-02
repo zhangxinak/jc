@@ -29,8 +29,12 @@ validate_lock() {
     echo "ERROR: Cargo.lock 仍含 wit-bindgen 0.50+（edition2024）"
     exit 1
   fi
-  if grep -E 'name = "idna_adapter"' Cargo.lock -A2 | grep -qE 'version = "1\.2\.2"'; then
-    echo "ERROR: Cargo.lock 仍含 idna_adapter 1.2.2（edition2024）"
+  if grep -E 'name = "idna_adapter"' Cargo.lock -A2 | grep -qE 'version = "1\.2\.[2-9]'; then
+    echo "ERROR: Cargo.lock 仍含 idna_adapter 1.2.2+（edition2024 或 ICU 2.x 需 Rust 1.82+）"
+    exit 1
+  fi
+  if grep -E 'name = "icu_normalizer_data"' Cargo.lock -A2 | grep -qE 'version = "2\.'; then
+    echo "ERROR: Cargo.lock 仍含 icu 2.x 数据 crate（需 Rust 1.82+），请 pin idna_adapter=1.2.0"
     exit 1
   fi
 }

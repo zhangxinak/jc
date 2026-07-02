@@ -1,0 +1,7 @@
+# MSRV 1.77.2 降级表（build 报错时 pin-msrv1772.ps1 读取）
+litemap 0.7.3
+writeable 0.5.5
+tinystr 0.7.6
+yoke 0.7.5
+zerovec 0.10.4
+unicode-segmentation 1.12.0
