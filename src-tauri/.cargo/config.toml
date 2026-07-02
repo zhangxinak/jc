@@ -1,0 +1,7 @@
+# Windows：静态链接 MSVC 运行时，避免目标机缺少 VCRUNTIME140_1.dll
+# （GitHub Actions / 开发机用 MSVC 工具链构建时生效）
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.i686-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
