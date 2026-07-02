@@ -62,6 +62,7 @@
 ## 故障排除
 
 - **Windows 7 报「无法定位程序输入点 ProcessPrng 于 bcryptprimitives.dll」**：构建时使用了 Rust **1.78 及以上**。Rust 1.78 起不再支持 Windows 7。请使用项目固定的 **1.77.2** 重新构建（根目录 `rust-toolchain.toml` 已配置；本地可执行 `rustup override set 1.77.2`），或通过 GitHub Actions 重新下载产物。
+- **Windows 报「找不到 VCRUNTIME140_1.dll」**：目标机缺少 VC++ 运行库。最新构建已在 `src-tauri/.cargo/config.toml` 启用静态链接 CRT；若仍报错，可安装 [VC++ 2015-2022 运行库 x64](https://aka.ms/vs/17/release/vc_redist.x64.exe)。
 - **CI 报 `edition2024` 或 `requires rustc 1.8x`**：无 `Cargo.lock` 时 cargo 会拉 crates.io 最新依赖，许多 crate 已提高 MSRV 或切 edition2024，Cargo 1.77.2 无法构建。项目已通过 `Cargo.toml` + `src-tauri/Cargo.lock` 锁定兼容版本；**必须提交 `Cargo.lock`**。常见需 pin 的：`idna_adapter=1.2.0`（勿用 1.2.1+，会引入 ICU 2.x）、`indexmap@2=2.11.4`、`uuid`/`tempfile` 等。完整列表见 `scripts/edition2021-pins.txt`。
 - **端口 18888 被占用**：修改配置文件中的 `port` 或关闭占用程序
 - **获取硬件信息失败**：确认已点击「开启授权」；Windows 可尝试管理员权限

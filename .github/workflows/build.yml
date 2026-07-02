@@ -255,7 +255,12 @@ jobs:
             echo "3、 若出现「无法验证发布者」或「Windows 已保护您的电脑」" >> upload/使用说明.txt
             echo "   属于正常提示。请点击「更多信息」→ 再点击「仍要运行」即可正常使用。" >> upload/使用说明.txt
             echo "" >> upload/使用说明.txt
-            echo "4、 Windows 7 用户额外说明" >> upload/使用说明.txt
+            echo "4、 若提示找不到 VCRUNTIME140_1.dll 或 VCRUNTIME140.dll" >> upload/使用说明.txt
+            echo "   请安装 Microsoft Visual C++ 2015-2022 运行库（64位装 x64，32位装 x86）：" >> upload/使用说明.txt
+            echo "   https://aka.ms/vs/17/release/vc_redist.x64.exe" >> upload/使用说明.txt
+            echo "   最新 CI 构建已静态链接运行库，重新下载后一般无需再装。" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "5、 Windows 7 用户额外说明" >> upload/使用说明.txt
             echo "   需已安装 WebView2 运行时（Evergreen 引导程序）。" >> upload/使用说明.txt
             echo "   若报「无法定位程序输入点 ProcessPrng」，说明安装包并非用 Rust 1.77.2 构建，请重新下载最新 CI 产物。" >> upload/使用说明.txt
             echo "" >> upload/使用说明.txt
