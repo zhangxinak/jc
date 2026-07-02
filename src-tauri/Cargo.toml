@@ -22,7 +22,13 @@ tauri-build = { version = "=1.5.3", features = [] }
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "=1.6.8", features = ["devtools", "windows7-compat"] }
+tauri = { version = "=1.6.8", features = [
+  "devtools",
+  "windows7-compat",
+  "dialog-all",
+  "shell-open",
+  "window-all",
+] }
 
 # Rust 1.77.2 / Win7：以下 crate 新版本已切 edition2024，必须精确锁定
 # 完整 pin 列表见 scripts/edition2021-pins.txt（含 uuid/tempfile 等引入 getrandom 0.4 的父 crate）
