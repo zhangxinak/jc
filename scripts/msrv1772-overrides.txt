@@ -5,3 +5,4 @@ tinystr 0.7.6
 yoke 0.7.5
 zerovec 0.10.4
 unicode-segmentation 1.12.0
+plist 1.7.1

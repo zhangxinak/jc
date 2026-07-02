@@ -37,6 +37,10 @@ validate_lock() {
     echo "ERROR: Cargo.lock 仍含 icu 2.x 数据 crate（需 Rust 1.82+），请 pin idna_adapter=1.2.0"
     exit 1
   fi
+  if grep -E 'name = "plist"' Cargo.lock -A2 | grep -qE 'version = "1\.8\.'; then
+    echo "ERROR: Cargo.lock 仍含 plist 1.8+（需 Rust 1.81+），请 pin plist=1.7.1"
+    exit 1
+  fi
 }
 
 if [ -f Cargo.lock ]; then
