@@ -124,7 +124,7 @@ jobs:
           path: |
             ~/.cargo/git
             ${{ steps.project-dir.outputs.dir }}/src-tauri/target/
-          key: ${{ runner.os }}-cargo-1772-v3-${{ hashFiles(format('{0}/src-tauri/Cargo.lock', steps.project-dir.outputs.dir), format('{0}/src-tauri/Cargo.toml', steps.project-dir.outputs.dir)) }}
+          key: ${{ runner.os }}-cargo-1772-v4-crt-static-${{ hashFiles(format('{0}/src-tauri/Cargo.lock', steps.project-dir.outputs.dir), format('{0}/src-tauri/Cargo.toml', steps.project-dir.outputs.dir), format('{0}/src-tauri/.cargo/config.toml', steps.project-dir.outputs.dir)) }}
 
       - name: 安装 stable 工具链（仅用于生成/锁定 Cargo.lock）
         if: matrix.os != 'ubuntu-latest'
@@ -141,6 +141,8 @@ jobs:
 
       - name: 构建（macOS / Windows）
         if: matrix.os != 'ubuntu-latest'
+        env:
+          RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
         run: |
           set -e
           PROJ="${{ steps.project-dir.outputs.dir }}"
@@ -180,11 +182,27 @@ jobs:
           
             echo "✅ macOS通用版本创建完成"
           else
-            echo "🚀 Windows构建（Rust 1.77.2，兼容 Win7；直接 cargo build，无需 tauri-cli）"
+            echo "🚀 Windows构建（Rust 1.77.2，静态链接 CRT，避免 VCRUNTIME140_1.dll）"
+            echo "RUSTFLAGS=$RUSTFLAGS"
+            cargo clean
             cargo build --locked --release --target ${{ matrix.target }} --verbose
           
             echo "📋 构建产物:"
             ls -la target/${{ matrix.target }}/release/*.exe 2>/dev/null | head -20
+          
+            EXE=""
+            for name in machine-code-tool "机器码获取工具"; do
+              if [ -f "target/${{ matrix.target }}/release/$name.exe" ]; then EXE="target/${{ matrix.target }}/release/$name.exe"; fi
+            done
+            if [ -n "$EXE" ] && command -v dumpbin >/dev/null 2>&1; then
+              echo "=== dumpbin /dependents $EXE ==="
+              dumpbin /dependents "$EXE" | tee /tmp/exe-deps.txt || true
+              if grep -i "VCRUNTIME140" /tmp/exe-deps.txt; then
+                echo "⚠️ exe 仍依赖 VCRUNTIME DLL，客户机可能需安装 VC++ 运行库"
+              else
+                echo "✅ exe 未直接依赖 VCRUNTIME140*.dll"
+              fi
+            fi
           fi
         shell: bash
 
@@ -205,6 +223,12 @@ jobs:
               exit 1
             fi
           elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            # 附带 VC++ 运行库安装包（客户机缺 DLL 时可双击安装）
+            if [ "${{ matrix.asset_name }}" = "machine-code-tool-windows-32" ]; then
+              curl -fsSL -o upload/vc_redist.x86.exe "https://aka.ms/vs/17/release/vc_redist.x86.exe"
+            else
+              curl -fsSL -o upload/vc_redist.x64.exe "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+            fi
             # Windows: 复制 exe（可执行文件名来自 tauri.conf.json 的 productName：机器码获取工具.exe）
             WIN_BIN="机器码获取工具.exe"
             WIN_EXE=""
@@ -256,9 +280,8 @@ jobs:
             echo "   属于正常提示。请点击「更多信息」→ 再点击「仍要运行」即可正常使用。" >> upload/使用说明.txt
             echo "" >> upload/使用说明.txt
             echo "4、 若提示找不到 VCRUNTIME140_1.dll 或 VCRUNTIME140.dll" >> upload/使用说明.txt
-            echo "   请安装 Microsoft Visual C++ 2015-2022 运行库（64位装 x64，32位装 x86）：" >> upload/使用说明.txt
-            echo "   https://aka.ms/vs/17/release/vc_redist.x64.exe" >> upload/使用说明.txt
-            echo "   最新 CI 构建已静态链接运行库，重新下载后一般无需再装。" >> upload/使用说明.txt
+            echo "   先双击同目录下的 vc_redist.x64.exe（32位包内为 vc_redist.x86.exe）安装运行库，再运行本程序。" >> upload/使用说明.txt
+            echo "   安装时若提示已安装，可选择「修复」或「重新安装」。" >> upload/使用说明.txt
             echo "" >> upload/使用说明.txt
             echo "5、 Windows 7 用户额外说明" >> upload/使用说明.txt
             echo "   需已安装 WebView2 运行时（Evergreen 引导程序）。" >> upload/使用说明.txt

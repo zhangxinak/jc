@@ -28,6 +28,8 @@ echo.
 
 echo 尝试直接构建Rust项目...
 cd src-tauri
+rem 静态链接 MSVC 运行时，避免客户机缺少 VCRUNTIME140_1.dll
+set RUSTFLAGS=-C target-feature=+crt-static
 if exist "Cargo.lock" (
     cargo build --locked --release
 ) else (
