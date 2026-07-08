@@ -7,6 +7,7 @@ use warp::Filter;
 
 mod hardware;
 mod config;
+mod startup;
 
 use hardware::MachineInfo;
 use config::AppConfig;
@@ -304,7 +305,13 @@ async fn set_auth_handler(
 
 #[tokio::main]
 async fn main() {
+    startup::install_panic_hook();
     env_logger::init();
+
+    if let Err(message) = startup::preflight_checks() {
+        startup::show_fatal_error(&message);
+        return;
+    }
     
     let state = Arc::new(Mutex::new(AppState::new()));
     
@@ -315,7 +322,7 @@ async fn main() {
     });
 
     // 启动Tauri GUI
-    tauri::Builder::default()
+    match tauri::Builder::default()
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             get_machine_info_gui,
@@ -327,5 +334,16 @@ async fn main() {
             fetch_remote_content
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    {
+        Ok(_) => startup::append_log("程序正常退出"),
+        Err(error) => {
+            let message = format!(
+                "程序启动失败: {}\n\n请查看日志:\n{}",
+                error,
+                startup::log_path_display()
+            );
+            startup::append_log(&message);
+            startup::show_fatal_error(&message);
+        }
+    }
 }

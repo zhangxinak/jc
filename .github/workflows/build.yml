@@ -243,6 +243,30 @@ jobs:
             fi
             if [ -n "$WIN_EXE" ]; then
               cp "$WIN_EXE" upload/${{ matrix.asset_name }}.exe
+              cat > upload/诊断.bat << EOF
+@echo off
+chcp 65001 >nul
+echo ========================================
+echo 机器码获取工具 - 诊断脚本
+echo ========================================
+echo.
+echo 日志: %APPDATA%\\machine-code-tool\\startup.log
+echo.
+if exist "%APPDATA%\\machine-code-tool\\startup.log" type "%APPDATA%\\machine-code-tool\\startup.log"
+echo.
+echo 正在启动程序...
+start "" "%~dp0${{ matrix.asset_name }}.exe"
+timeout /t 3 >nul
+echo.
+if exist "%APPDATA%\\machine-code-tool\\startup.log" (
+  echo --- 启动后日志 ---
+  type "%APPDATA%\\machine-code-tool\\startup.log"
+) else (
+  echo 未生成日志。常见原因: 未安装 WebView2 或 VC++ 运行库。
+)
+echo.
+pause
+EOF
               echo "✅ Windows 文件已准备完成 (from $WIN_EXE)"
             else
               echo "❌ 未找到 $WIN_BIN 或 machine-code-tool.exe"
@@ -279,11 +303,17 @@ jobs:
             echo "3、 若出现「无法验证发布者」或「Windows 已保护您的电脑」" >> upload/使用说明.txt
             echo "   属于正常提示。请点击「更多信息」→ 再点击「仍要运行」即可正常使用。" >> upload/使用说明.txt
             echo "" >> upload/使用说明.txt
-            echo "4、 若提示找不到 VCRUNTIME140_1.dll 或 VCRUNTIME140.dll" >> upload/使用说明.txt
+            echo "4、 若双击 exe 后窗口一闪就消失（闪退）" >> upload/使用说明.txt
+            echo "   最常见原因：未安装 WebView2 运行时。" >> upload/使用说明.txt
+            echo "   请安装 Evergreen 引导程序: https://go.microsoft.com/fwlink/p/?LinkId=2124703" >> upload/使用说明.txt
+            echo "   安装后重新运行；若仍失败，双击同目录「诊断.bat」或查看日志:" >> upload/使用说明.txt
+            echo "   %APPDATA%\\machine-code-tool\\startup.log" >> upload/使用说明.txt
+            echo "" >> upload/使用说明.txt
+            echo "5、 若提示找不到 VCRUNTIME140_1.dll 或 VCRUNTIME140.dll" >> upload/使用说明.txt
             echo "   先双击同目录下的 vc_redist.x64.exe（32位包内为 vc_redist.x86.exe）安装运行库，再运行本程序。" >> upload/使用说明.txt
             echo "   安装时若提示已安装，可选择「修复」或「重新安装」。" >> upload/使用说明.txt
             echo "" >> upload/使用说明.txt
-            echo "5、 Windows 7 用户额外说明" >> upload/使用说明.txt
+            echo "6、 Windows 7 用户额外说明" >> upload/使用说明.txt
             echo "   需已安装 WebView2 运行时（Evergreen 引导程序）。" >> upload/使用说明.txt
             echo "   若报「无法定位程序输入点 ProcessPrng」，说明安装包并非用 Rust 1.77.2 构建，请重新下载最新 CI 产物。" >> upload/使用说明.txt
             echo "" >> upload/使用说明.txt
