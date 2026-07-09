@@ -36,21 +36,24 @@ impl AppState {
 #[cfg(windows)]
 fn configure_webview2_rendering() {
     const WEBVIEW2_ARGS_ENV: &str = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
-    const COMPAT_ARGS: &str = "--disable-gpu --disable-gpu-compositing";
+    const OPT_IN_ENV: &str = "MACHINE_CODE_WEBVIEW2_DISABLE_GPU";
 
+    if std::env::var(OPT_IN_ENV).ok().as_deref() != Some("1") {
+        startup::append_log("未启用 WebView2 兼容渲染参数");
+        return;
+    }
+
+    let compat_args = "--disable-gpu --disable-gpu-compositing";
     let args = match std::env::var(WEBVIEW2_ARGS_ENV) {
-        Ok(existing) if !existing.trim().is_empty() => {
-            if existing.contains("--disable-gpu") {
-                existing
-            } else {
-                format!("{} {}", existing, COMPAT_ARGS)
-            }
+        Ok(existing) if !existing.trim().is_empty() && existing.contains("--disable-gpu") => {
+            existing
         }
-        _ => COMPAT_ARGS.to_string(),
+        Ok(existing) if !existing.trim().is_empty() => format!("{} {}", existing, compat_args),
+        _ => compat_args.to_string(),
     };
 
     std::env::set_var(WEBVIEW2_ARGS_ENV, args);
-    startup::append_log("已设置 WebView2 兼容渲染参数");
+    startup::append_log("已按环境变量启用 WebView2 兼容渲染参数");
 }
 
 #[cfg(not(windows))]
