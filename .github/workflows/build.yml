@@ -244,29 +244,29 @@ jobs:
             if [ -n "$WIN_EXE" ]; then
               cp "$WIN_EXE" upload/${{ matrix.asset_name }}.exe
               cat > upload/诊断.bat << EOF
-@echo off
-chcp 65001 >nul
-echo ========================================
-echo 机器码获取工具 - 诊断脚本
-echo ========================================
-echo.
-echo 日志: %APPDATA%\\machine-code-tool\\startup.log
-echo.
-if exist "%APPDATA%\\machine-code-tool\\startup.log" type "%APPDATA%\\machine-code-tool\\startup.log"
-echo.
-echo 正在启动程序...
-start "" "%~dp0${{ matrix.asset_name }}.exe"
-timeout /t 3 >nul
-echo.
-if exist "%APPDATA%\\machine-code-tool\\startup.log" (
-  echo --- 启动后日志 ---
-  type "%APPDATA%\\machine-code-tool\\startup.log"
-) else (
-  echo 未生成日志。常见原因: 未安装 WebView2 或 VC++ 运行库。
-)
-echo.
-pause
-EOF
+          @echo off
+          chcp 65001 >nul
+          echo ========================================
+          echo 机器码获取工具 - 诊断脚本
+          echo ========================================
+          echo.
+          echo 日志: %APPDATA%\\machine-code-tool\\startup.log
+          echo.
+          if exist "%APPDATA%\\machine-code-tool\\startup.log" type "%APPDATA%\\machine-code-tool\\startup.log"
+          echo.
+          echo 正在启动程序...
+          start "" "%~dp0${{ matrix.asset_name }}.exe"
+          timeout /t 3 >nul
+          echo.
+          if exist "%APPDATA%\\machine-code-tool\\startup.log" (
+            echo --- 启动后日志 ---
+            type "%APPDATA%\\machine-code-tool\\startup.log"
+          ) else (
+            echo 未生成日志。常见原因: 未安装 WebView2 或 VC++ 运行库。
+          )
+          echo.
+          pause
+          EOF
               echo "✅ Windows 文件已准备完成 (from $WIN_EXE)"
             else
               echo "❌ 未找到 $WIN_BIN 或 machine-code-tool.exe"

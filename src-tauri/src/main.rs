@@ -5,12 +5,12 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::Filter;
 
-mod hardware;
 mod config;
+mod hardware;
 mod startup;
 
-use hardware::MachineInfo;
 use config::AppConfig;
+use hardware::MachineInfo;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -33,13 +33,36 @@ impl AppState {
     }
 }
 
+#[cfg(windows)]
+fn configure_webview2_rendering() {
+    const WEBVIEW2_ARGS_ENV: &str = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
+    const COMPAT_ARGS: &str = "--disable-gpu --disable-gpu-compositing";
+
+    let args = match std::env::var(WEBVIEW2_ARGS_ENV) {
+        Ok(existing) if !existing.trim().is_empty() => {
+            if existing.contains("--disable-gpu") {
+                existing
+            } else {
+                format!("{} {}", existing, COMPAT_ARGS)
+            }
+        }
+        _ => COMPAT_ARGS.to_string(),
+    };
+
+    std::env::set_var(WEBVIEW2_ARGS_ENV, args);
+    startup::append_log("已设置 WebView2 兼容渲染参数");
+}
+
+#[cfg(not(windows))]
+fn configure_webview2_rendering() {}
+
 // Tauri命令处理函数
 #[tauri::command]
 async fn get_machine_info_gui(
     state: tauri::State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<serde_json::Value, String> {
     let mut app_state = state.lock().await;
-    
+
     // 检查授权状态
     if !app_state.authorized {
         return Ok(serde_json::json!({
@@ -47,12 +70,12 @@ async fn get_machine_info_gui(
             "message": "未开启授权，请先开启授权后再获取机器信息"
         }));
     }
-    
+
     if app_state.machine_info.is_none() {
         match hardware::get_machine_info().await {
             Ok(info) => app_state.machine_info = Some(info),
             Err(e) => {
-                   // eprintln!("获取机器信息失败: {}", e);
+                // eprintln!("获取机器信息失败: {}", e);
                 return Ok(serde_json::json!({
                     "success": false,
                     "message": format!("获取机器信息失败: {}", e)
@@ -60,7 +83,7 @@ async fn get_machine_info_gui(
             }
         }
     }
-    
+
     if let Some(ref info) = app_state.machine_info {
         Ok(serde_json::json!({
             "success": true,
@@ -97,14 +120,14 @@ async fn set_auth_status_gui(
     let mut app_state = state.lock().await;
     app_state.authorized = request.authorized;
     app_state.config.authorized = request.authorized;
-    
+
     if let Err(e) = app_state.config.save() {
         return Ok(serde_json::json!({
             "success": false,
             "message": format!("保存配置失败: {}", e)
         }));
     }
-    
+
     Ok(serde_json::json!({
         "success": true,
         "authorized": request.authorized
@@ -134,30 +157,49 @@ async fn toggle_devtools(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn append_frontend_log(level: String, message: String) -> Result<(), String> {
+    startup::append_log(&format!("[frontend][{}] {}", level, message));
+    Ok(())
+}
+
+#[tauri::command]
 async fn fetch_remote_content(url: String) -> Result<serde_json::Value, String> {
+    startup::append_log(&format!("开始获取远程内容: {}", url));
     let client = reqwest::Client::builder()
         .user_agent("Machine-Code-Tool/2.1.0")
         .build()
-        .map_err(|e| format!("创建HTTP客户端失败: {}", e))?;
+        .map_err(|e| {
+            let message = format!("创建HTTP客户端失败: {}", e);
+            startup::append_log(&message);
+            message
+        })?;
     // findConfByKey 类接口一般为 GET
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("网络请求失败: {}", e))?;
+    let response = client.get(&url).send().await.map_err(|e| {
+        let message = format!("网络请求失败: {}", e);
+        startup::append_log(&message);
+        message
+    })?;
     if !response.status().is_success() {
-        return Err(format!(
+        let message = format!(
             "HTTP {} {}",
             response.status().as_u16(),
             response.status().canonical_reason().unwrap_or("Unknown")
-        ));
+        );
+        startup::append_log(&message);
+        return Err(message);
     }
-    let text = response
-        .text()
-        .await
-        .map_err(|e| format!("读取响应失败: {}", e))?;
-    serde_json::from_str::<serde_json::Value>(&text)
-        .map_err(|e| format!("JSON解析失败: {}", e))
+    let text = response.text().await.map_err(|e| {
+        let message = format!("读取响应失败: {}", e);
+        startup::append_log(&message);
+        message
+    })?;
+    startup::append_log(&format!("远程内容响应长度: {} 字节", text.len()));
+    serde_json::from_str::<serde_json::Value>(&text).map_err(|e| {
+        let preview: String = text.chars().take(300).collect();
+        let message = format!("JSON解析失败: {}; 响应预览: {}", e, preview);
+        startup::append_log(&message);
+        message
+    })
 }
 
 // 返回带完整 CORS 头的 OPTIONS 预检响应（直接用 http::Response，避免 warp reply 链未生效）
@@ -182,17 +224,32 @@ async fn start_http_server(state: Arc<Mutex<AppState>>) {
     // CORS：允许跨域（GET/POST 响应也需 CORS 头，由 cors 层添加）
     let cors = warp::cors()
         .allow_any_origin()
-        .allow_headers(vec!["content-type", "Content-Type", "Origin", "Accept", "Access-Control-Request-Method", "Access-Control-Request-Headers"])
+        .allow_headers(vec![
+            "content-type",
+            "Content-Type",
+            "Origin",
+            "Accept",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers",
+        ])
         .allow_methods(vec!["GET", "POST", "OPTIONS"])
         .build();
 
     let state_filter = warp::any().map(move || state.clone());
 
     // OPTIONS 预检：直接返回带 CORS 头的 204，不经过 warp CORS 层（确保预检一定带上 Access-Control-Allow-Origin）
-    let opt_machine = warp::path!("api" / "machine-code").and(warp::options()).map(cors_preflight_response);
-    let opt_auth = warp::path!("api" / "auth-status").and(warp::options()).map(cors_preflight_response);
-    let opt_set = warp::path!("api" / "set-auth").and(warp::options()).map(cors_preflight_response);
-    let opt_health = warp::path!("health").and(warp::options()).map(cors_preflight_response);
+    let opt_machine = warp::path!("api" / "machine-code")
+        .and(warp::options())
+        .map(cors_preflight_response);
+    let opt_auth = warp::path!("api" / "auth-status")
+        .and(warp::options())
+        .map(cors_preflight_response);
+    let opt_set = warp::path!("api" / "set-auth")
+        .and(warp::options())
+        .map(cors_preflight_response);
+    let opt_health = warp::path!("health")
+        .and(warp::options())
+        .map(cors_preflight_response);
 
     let machine_code = warp::path!("api" / "machine-code")
         .and(warp::get())
@@ -231,16 +288,14 @@ async fn start_http_server(state: Arc<Mutex<AppState>>) {
     let routes = opt_routes.or(api_routes);
 
     // HTTP服务已启动: http://localhost:18888
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 18888))
-        .await;
+    warp::serve(routes).run(([127, 0, 0, 1], 18888)).await;
 }
 
 async fn get_machine_code_handler(
     state: Arc<Mutex<AppState>>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     let mut app_state = state.lock().await;
-    
+
     // 检查授权状态
     if !app_state.authorized {
         return Ok(warp::reply::json(&serde_json::json!({
@@ -249,12 +304,12 @@ async fn get_machine_code_handler(
             "authorized": false
         })));
     }
-    
+
     if app_state.machine_info.is_none() {
         match hardware::get_machine_info().await {
             Ok(info) => app_state.machine_info = Some(info),
             Err(e) => {
-                   // eprintln!("获取机器信息失败: {}", e);
+                // eprintln!("获取机器信息失败: {}", e);
                 return Ok(warp::reply::json(&serde_json::json!({
                     "error": "获取机器信息失败",
                     "message": format!("获取机器信息失败: {}", e)
@@ -262,7 +317,7 @@ async fn get_machine_code_handler(
             }
         }
     }
-    
+
     if let Some(ref info) = app_state.machine_info {
         Ok(warp::reply::json(info))
     } else {
@@ -281,7 +336,6 @@ async fn get_auth_status_handler(
     })))
 }
 
-
 async fn set_auth_handler(
     request: AuthRequest,
     state: Arc<Mutex<AppState>>,
@@ -289,14 +343,14 @@ async fn set_auth_handler(
     let mut app_state = state.lock().await;
     app_state.authorized = request.authorized;
     app_state.config.authorized = request.authorized;
-    
+
     if let Err(e) = app_state.config.save() {
         return Ok(warp::reply::json(&serde_json::json!({
             "success": false,
             "message": format!("保存配置失败: {}", e)
         })));
     }
-    
+
     Ok(warp::reply::json(&serde_json::json!({
         "success": true,
         "authorized": request.authorized
@@ -312,9 +366,11 @@ async fn main() {
         startup::show_fatal_error(&message);
         return;
     }
-    
+
+    configure_webview2_rendering();
+
     let state = Arc::new(Mutex::new(AppState::new()));
-    
+
     // 启动HTTP服务器
     let http_state = state.clone();
     tokio::spawn(async move {
@@ -331,6 +387,7 @@ async fn main() {
             open_user_agreement,
             open_privacy_policy,
             toggle_devtools,
+            append_frontend_log,
             fetch_remote_content
         ])
         .run(tauri::generate_context!())

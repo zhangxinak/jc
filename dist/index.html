@@ -318,21 +318,62 @@
 
         // 日志收集
         let logMessages = [];
-        
-        // 重写console.log来收集日志
-        const originalConsoleLog = console.log;
-        console.log = function(...args) {
-            const message = args.map(arg => 
-                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-            ).join(' ');
+
+        function stringifyLogArg(arg) {
+            if (arg instanceof Error) return arg.stack || arg.message || String(arg);
+            if (typeof arg === 'object' && arg !== null) {
+                try {
+                    return JSON.stringify(arg, null, 2);
+                } catch (e) {
+                    return Object.prototype.toString.call(arg);
+                }
+            }
+            return String(arg);
+        }
+
+        function sendFrontendLog(level, message) {
+            const inv = tauriInvoke || getTauriInvoke();
+            if (!inv) return;
+            inv('append_frontend_log', { level, message }).catch(function() {});
+        }
+
+        function appendLog(level, args) {
+            const message = args.map(stringifyLogArg).join(' ');
             const timestamp = new Date().toLocaleTimeString();
-            logMessages.push(`[${timestamp}] ${message}`);
+            const line = `[${timestamp}] [${level}] ${message}`;
+            logMessages.push(line);
             // 保持最新100条日志
             if (logMessages.length > 100) {
                 logMessages = logMessages.slice(-100);
             }
+            sendFrontendLog(level, message);
+            return message;
+        }
+
+        // 重写console日志来收集日志，并写入本地 startup.log
+        const originalConsoleLog = console.log;
+        const originalConsoleWarn = console.warn;
+        const originalConsoleError = console.error;
+        console.log = function(...args) {
+            appendLog('INFO', args);
             originalConsoleLog.apply(console, args);
         };
+        console.warn = function(...args) {
+            appendLog('WARN', args);
+            originalConsoleWarn.apply(console, args);
+        };
+        console.error = function(...args) {
+            appendLog('ERROR', args);
+            originalConsoleError.apply(console, args);
+        };
+
+        window.addEventListener('error', function(e) {
+            console.error('前端脚本错误:', e.message, e.filename + ':' + e.lineno + ':' + e.colno);
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('前端异步错误:', e.reason);
+        });
 
         function getTauriInvoke() {
             if (!window.__TAURI__) return null;
@@ -491,13 +532,55 @@
             }
         }
 
+        function normalizeContentValue(value) {
+            if (typeof value !== 'string') return null;
+            const trimmed = value.trim();
+            return trimmed ? value : null;
+        }
+
         function extractContent(result) {
+            if (typeof result === 'string') return normalizeContentValue(result);
             if (!result || typeof result !== 'object') return null;
-            if (result.v != null && typeof result.v === 'string') return result.v;
-            if (result.data && result.data.v != null) return result.data.v;
-            if (result.value != null && typeof result.value === 'string') return result.value;
-            if (typeof result === 'string') return result;
+
+            const candidates = [
+                result.v,
+                result.value,
+                result.content,
+                result.text,
+                result.html,
+                result.message,
+                result.data && result.data.v,
+                result.data && result.data.value,
+                result.data && result.data.content,
+                result.data && result.data.text,
+                result.data && result.data.html,
+                result.result && result.result.v,
+                result.result && result.result.value,
+                result.result && result.result.content,
+                result.rows && result.rows[0] && result.rows[0].v,
+                result.rows && result.rows[0] && result.rows[0].value,
+                result.rows && result.rows[0] && result.rows[0].content,
+                result.list && result.list[0] && result.list[0].v,
+                result.list && result.list[0] && result.list[0].value,
+                result.records && result.records[0] && result.records[0].v,
+                result.records && result.records[0] && result.records[0].value
+            ];
+
+            for (const value of candidates) {
+                const content = normalizeContentValue(value);
+                if (content) return content;
+            }
             return null;
+        }
+
+        function formatResultPreview(result) {
+            try {
+                const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+                if (!text) return '空响应';
+                return text.length > 1200 ? text.slice(0, 1200) + '\n...(已截断)' : text;
+            } catch (e) {
+                return String(result);
+            }
         }
 
         async function openUserAgreement() {
@@ -513,6 +596,9 @@
                         showCustomDialog('用户协议', content);
                         return;
                     }
+                    console.warn('用户协议响应未解析到正文:', result);
+                    showCustomDialog('用户协议', '在线内容为空或接口结构不符合预期。\n\n响应预览：\n' + formatResultPreview(result));
+                    return;
                 } catch (error) {
                     console.log('后端获取用户协议失败:', error);
                     const errMsg = (error && (error.message || error.toString())) ? (error.message || error.toString()) : '未知错误';
@@ -536,6 +622,9 @@
                         showCustomDialog('隐私策略', content);
                         return;
                     }
+                    console.warn('隐私策略响应未解析到正文:', result);
+                    showCustomDialog('隐私策略', '在线内容为空或接口结构不符合预期。\n\n响应预览：\n' + formatResultPreview(result));
+                    return;
                 } catch (error) {
                     console.log('后端获取隐私策略失败:', error);
                     const errMsg = (error && (error.message || error.toString())) ? (error.message || error.toString()) : '未知错误';
